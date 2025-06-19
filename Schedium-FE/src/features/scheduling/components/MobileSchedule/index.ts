@@ -1,0 +1,1 @@
+export { TouchScheduleMatrix } from './TouchScheduleMatrix'

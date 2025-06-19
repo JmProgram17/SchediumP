@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_BASE_URL=http://schedium-api:8000
+      - VITE_API_URL=http://schedium-api:8000
+    networks:
+      - schedium-network
+
+networks:
+  schedium-network:
+    external: true
+    name: schedium_schedium-network

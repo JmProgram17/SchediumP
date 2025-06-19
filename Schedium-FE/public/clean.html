@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpiar Service Worker - Schedium</title>
+    <meta charset="UTF-8">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            text-align: center;
+            background: #f0f0f0;
+        }
+        .container { 
+            max-width: 500px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn { 
+            background: #FF6B00; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 18px;
+            margin: 10px;
+        }
+        .btn:hover { background: #e55a00; }
+        .status { 
+            margin: 20px 0; 
+            padding: 10px; 
+            border-radius: 5px;
+        }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .info { background: #dbeafe; color: #1e40af; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpieza de Service Worker</h1>
+        <p>Si ves error de Service Worker, usa este botón:</p>
+        
+        <button class="btn" onclick="forceCleanup()">
+            ✨ LIMPIAR TODO AHORA
+        </button>
+        
+        <div id="status"></div>
+        
+        <div style="margin-top: 30px; padding: 15px; background: #f9fafb; border-radius: 5px;">
+            <h3>📋 Instrucciones:</h3>
+            <ol style="text-align: left;">
+                <li>Haz clic en "LIMPIAR TODO AHORA"</li>
+                <li>Espera los mensajes de confirmación</li>
+                <li>Cierra esta pestaña</li>
+                <li>Ve a <strong>http://localhost:3000/</strong></li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const status = document.getElementById('status');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            status.appendChild(div);
+        }
+
+        async function forceCleanup() {
+            log('🔄 Iniciando limpieza completa...', 'info');
+            
+            try {
+                // 1. Unregister all service workers
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    log(`📝 Encontrados ${registrations.length} service workers`, 'info');
+                    
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        log(`✅ Service Worker desregistrado: ${registration.scope}`, 'success');
+                    }
+                }
+                
+                // 2. Clear all caches
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    log(`📝 Encontrados ${cacheNames.length} caches`, 'info');
+                    
+                    for (let cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`✅ Cache eliminado: ${cacheName}`, 'success');
+                    }
+                }
+                
+                // 3. Clear storage
+                try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    log('✅ Storage limpiado', 'success');
+                } catch (e) {
+                    log(`⚠️ Storage: ${e.message}`, 'error');
+                }
+                
+                // 4. Clear IndexedDB
+                try {
+                    if ('indexedDB' in window && indexedDB.databases) {
+                        const databases = await indexedDB.databases();
+                        for (let db of databases) {
+                            indexedDB.deleteDatabase(db.name);
+                            log(`✅ IndexedDB eliminado: ${db.name}`, 'success');
+                        }
+                    }
+                } catch (e) {
+                    log(`⚠️ IndexedDB: ${e.message}`, 'error');
+                }
+                
+                log('🎉 ¡LIMPIEZA COMPLETA! Cierra esta pestaña y ve a localhost:3000', 'success');
+                
+                // Auto redirect after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto cleanup on load
+        window.addEventListener('load', () => {
+            log('🔍 Página de limpieza cargada. Haz clic en el botón para continuar.', 'info');
+        });
+    </script>
+</body>
+</html>

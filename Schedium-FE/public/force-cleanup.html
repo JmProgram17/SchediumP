@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Forzar Limpieza - Service Worker</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #000; 
+            color: #0f0; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .button { 
+            background: #ff6b00; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 18px;
+            margin: 10px 0;
+            display: block;
+            width: 300px;
+        }
+        .log { margin: 5px 0; }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .warning { color: #ff0; }
+    </style>
+</head>
+<body>
+    <h1>🔧 FORZAR LIMPIEZA DE SERVICE WORKER</h1>
+    
+    <button class="button" onclick="aggressiveCleanup()">
+        🧹 LIMPIEZA AGRESIVA
+    </button>
+    
+    <button class="button" onclick="nukeBrowser()">
+        💥 NUCLEAR CLEANUP
+    </button>
+    
+    <button class="button" onclick="window.location.href='/'">
+        🚀 IR A SCHEDIUM
+    </button>
+    
+    <div id="log"></div>
+
+    <script>
+        function log(message, type = 'log') {
+            const logDiv = document.getElementById('log');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(div);
+            console.log(message);
+        }
+
+        async function aggressiveCleanup() {
+            log('🔄 INICIANDO LIMPIEZA AGRESIVA...', 'warning');
+            
+            try {
+                // 1. Force unregister ALL service workers
+                if ('serviceWorker' in navigator) {
+                    log('🔍 Buscando Service Workers...', 'log');
+                    
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    log(`📝 Encontrados: ${registrations.length} service workers`, 'log');
+                    
+                    for (let registration of registrations) {
+                        try {
+                            // Send unregister message first
+                            if (registration.active) {
+                                registration.active.postMessage({ type: 'UNREGISTER_SW' });
+                            }
+                            
+                            // Force unregister
+                            const result = await registration.unregister();
+                            log(`${result ? '✅' : '❌'} SW: ${registration.scope}`, result ? 'success' : 'error');
+                        } catch (e) {
+                            log(`❌ Error con SW: ${e.message}`, 'error');
+                        }
+                    }
+                    
+                    // Double check - try again
+                    setTimeout(async () => {
+                        const remaining = await navigator.serviceWorker.getRegistrations();
+                        if (remaining.length > 0) {
+                            log(`⚠️ AUN QUEDAN ${remaining.length} SW activos!`, 'warning');
+                            for (let reg of remaining) {
+                                await reg.unregister();
+                            }
+                        } else {
+                            log('✅ TODOS LOS SW ELIMINADOS', 'success');
+                        }
+                    }, 1000);
+                }
+                
+                // 2. Nuclear cache cleanup
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    log(`🗑️ Eliminando ${cacheNames.length} caches...`, 'log');
+                    
+                    for (let cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`✅ Cache: ${cacheName}`, 'success');
+                    }
+                }
+                
+                // 3. Clear all storage
+                try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    log('✅ Storage limpiado', 'success');
+                } catch (e) {
+                    log(`❌ Storage error: ${e.message}`, 'error');
+                }
+                
+                log('🎉 LIMPIEZA COMPLETA!', 'success');
+                log('🔄 Recargando en 2 segundos...', 'warning');
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                
+            } catch (error) {
+                log(`💥 ERROR CRÍTICO: ${error.message}`, 'error');
+            }
+        }
+
+        async function nukeBrowser() {
+            log('💥 INICIANDO LIMPIEZA NUCLEAR...', 'error');
+            
+            // This is the nuclear option
+            if (confirm('⚠️ ESTO ELIMINARÁ TODOS LOS DATOS DEL SITIO. ¿Continuar?')) {
+                try {
+                    // Clear everything possible
+                    await aggressiveCleanup();
+                    
+                    // Clear IndexedDB
+                    if ('indexedDB' in window) {
+                        try {
+                            const databases = await indexedDB.databases();
+                            for (let db of databases) {
+                                indexedDB.deleteDatabase(db.name);
+                                log(`💥 IndexedDB: ${db.name}`, 'success');
+                            }
+                        } catch (e) {
+                            log(`❌ IndexedDB: ${e.message}`, 'error');
+                        }
+                    }
+                    
+                    // Clear cookies for this domain (if possible)
+                    document.cookie.split(";").forEach(function(c) { 
+                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                    });
+                    
+                    log('💥 NUCLEAR CLEANUP COMPLETO!', 'success');
+                    log('🔄 CIERRA EL NAVEGADOR Y ABRELO DE NUEVO', 'warning');
+                    
+                } catch (error) {
+                    log(`💥 ERROR NUCLEAR: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Auto-run aggressive cleanup on load
+        window.addEventListener('load', () => {
+            log('🔧 Página de limpieza cargada', 'log');
+            log('💡 INSTRUCCIONES:', 'warning');
+            log('1. Haz clic en LIMPIEZA AGRESIVA', 'log');
+            log('2. Si no funciona, usa NUCLEAR CLEANUP', 'log');
+            log('3. Cierra el navegador completamente', 'log');
+            log('4. Abre el navegador y ve a localhost:3000', 'log');
+        });
+    </script>
+</body>
+</html>

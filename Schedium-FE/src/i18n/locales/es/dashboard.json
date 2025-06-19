@@ -1,0 +1,21 @@
+{
+  "title": "Tablero de Control",
+  "subtitle": "Resumen general del sistema",
+  "widgets": {
+    "todaySchedule": "Horario de Hoy",
+    "upcomingClasses": "Próximas Clases",
+    "weekOverview": "Resumen Semanal",
+    "statistics": "Estadísticas",
+    "recentActivity": "Actividad Reciente",
+    "notifications": "Notificaciones",
+    "quickActions": "Acciones Rápidas"
+  },
+  "stats": {
+    "totalCourses": "Total de Cursos",
+    "activeInstructors": "Instructores Activos",
+    "availableRooms": "Aulas Disponibles",
+    "scheduledClasses": "Clases Programadas",
+    "weeklyHours": "Horas Semanales",
+    "utilization": "Utilización"
+  }
+}

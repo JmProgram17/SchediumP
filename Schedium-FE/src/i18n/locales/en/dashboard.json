@@ -1,0 +1,10 @@
+{
+  "title": "Dashboard",
+  "subtitle": "System overview",
+  "widgets": {
+    "todaySchedule": "Today's Schedule",
+    "upcomingClasses": "Upcoming Classes",
+    "weekOverview": "Week Overview",
+    "statistics": "Statistics"
+  }
+}

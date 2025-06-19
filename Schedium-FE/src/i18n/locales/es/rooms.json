@@ -1,0 +1,16 @@
+{
+  "title": "Gestión de Aulas",
+  "create": "Crear Aula",
+  "edit": "Editar Aula",
+  "delete": "Eliminar Aula",
+  "fields": {
+    "name": "Nombre del Aula",
+    "code": "Código",
+    "capacity": "Capacidad",
+    "type": "Tipo",
+    "building": "Edificio",
+    "floor": "Piso",
+    "equipment": "Equipamiento",
+    "status": "Estado"
+  }
+}

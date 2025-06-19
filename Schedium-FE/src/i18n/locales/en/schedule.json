@@ -1,0 +1,24 @@
+{
+  "title": "Schedule Management",
+  "subtitle": "Manage and view academic schedules",
+  "views": {
+    "week": "Week",
+    "month": "Month",
+    "day": "Day",
+    "agenda": "Agenda",
+    "matrix": "Matrix",
+    "calendar": "Calendar"
+  },
+  "actions": {
+    "createSchedule": "Create Schedule",
+    "editSchedule": "Edit Schedule",
+    "deleteSchedule": "Delete Schedule"
+  },
+  "fields": {
+    "subject": "Subject",
+    "instructor": "Instructor",
+    "room": "Room",
+    "time": "Time",
+    "duration": "Duration"
+  }
+}

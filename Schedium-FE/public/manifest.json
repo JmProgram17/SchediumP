@@ -1,0 +1,132 @@
+{
+  "name": "Schedium - Sistema de Gestión Académica SENA",
+  "short_name": "Schedium",
+  "description": "Sistema integral de gestión académica para programación de horarios, gestión de instructores y recursos educativos del SENA CGMLTI",
+  "theme_color": "#FF6B00",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "id": "schedium-sena",
+  "categories": ["education", "productivity", "business"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "type": "image/png",
+      "sizes": "1280x720",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshots/schedule.png",
+      "type": "image/png",
+      "sizes": "1280x720",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshots/mobile-dashboard.png",
+      "type": "image/png",
+      "sizes": "360x640",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Horarios",
+      "short_name": "Horarios",
+      "description": "Ver y gestionar horarios académicos",
+      "url": "/scheduling/schedules",
+      "icons": [{ "src": "/icons/schedule.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Instructores",
+      "short_name": "Instructores",
+      "description": "Gestión de instructores",
+      "url": "/hr/instructors",
+      "icons": [{ "src": "/icons/instructor.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Estudiantes",
+      "short_name": "Estudiantes",
+      "description": "Gestión de estudiantes",
+      "url": "/academic/students",
+      "icons": [{ "src": "/icons/student.png", "sizes": "96x96" }]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  "features": [
+    "scheduling",
+    "notifications",
+    "offline",
+    "sync"
+  ],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  }
+}

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpiar Cache - Schedium</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button { 
+            background: #FF6B00; 
+            color: white; 
+            padding: 12px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .button:hover { background: #e55a00; }
+        .success { color: #10b981; margin: 10px 0; }
+        .error { color: #ef4444; margin: 10px 0; }
+        .info { color: #3b82f6; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpiar Cache del Navegador</h1>
+        <p>Si experimentas problemas con el Service Worker o cache, usa estas herramientas:</p>
+        
+        <div id="status"></div>
+        
+        <button class="button" onclick="unregisterServiceWorkers()">
+            🔧 Desregistrar Service Workers
+        </button>
+        
+        <button class="button" onclick="clearAllCaches()">
+            🗑️ Limpiar Cache
+        </button>
+        
+        <button class="button" onclick="clearLocalStorage()">
+            📝 Limpiar Local Storage
+        </button>
+        
+        <button class="button" onclick="fullCleanup()">
+            ✨ Limpieza Completa
+        </button>
+        
+        <button class="button" onclick="redirectToApp()">
+            🚀 Ir a Schedium
+        </button>
+        
+        <div style="margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 5px;">
+            <h3>📋 Instrucciones:</h3>
+            <ol>
+                <li>Haz clic en "Limpieza Completa"</li>
+                <li>Recarga esta página (Ctrl+F5)</li>
+                <li>Ve a Schedium con el botón "Ir a Schedium"</li>
+                <li>Si aún hay problemas, abre DevTools (F12) → Application → Storage → Clear All</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const status = document.getElementById('status');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            status.appendChild(div);
+        }
+
+        async function unregisterServiceWorkers() {
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        log(`✅ Service Worker desregistrado: ${registration.scope}`, 'success');
+                    }
+                    if (registrations.length === 0) {
+                        log('ℹ️ No hay Service Workers registrados', 'info');
+                    }
+                } else {
+                    log('❌ Service Worker no soportado', 'error');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearAllCaches() {
+            try {
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (let cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`✅ Cache eliminado: ${cacheName}`, 'success');
+                    }
+                    if (cacheNames.length === 0) {
+                        log('ℹ️ No hay caches para eliminar', 'info');
+                    }
+                } else {
+                    log('❌ Cache API no soportada', 'error');
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLocalStorage() {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                log('✅ Local Storage y Session Storage limpiados', 'success');
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function fullCleanup() {
+            log('🧹 Iniciando limpieza completa...', 'info');
+            await unregisterServiceWorkers();
+            await clearAllCaches();
+            clearLocalStorage();
+            
+            // Clear IndexedDB
+            try {
+                if ('indexedDB' in window) {
+                    const databases = await indexedDB.databases();
+                    for (let db of databases) {
+                        indexedDB.deleteDatabase(db.name);
+                        log(`✅ IndexedDB eliminado: ${db.name}`, 'success');
+                    }
+                }
+            } catch (error) {
+                log(`⚠️ Error con IndexedDB: ${error.message}`, 'error');
+            }
+            
+            log('✨ Limpieza completa finalizada!', 'success');
+            log('🔄 Recarga la página con Ctrl+F5', 'info');
+        }
+
+        function redirectToApp() {
+            window.location.href = '/';
+        }
+
+        // Auto-check service worker status
+        window.addEventListener('load', async () => {
+            log('🔍 Verificando estado del Service Worker...', 'info');
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length > 0) {
+                    log(`⚠️ ${registrations.length} Service Worker(s) activos detectados`, 'error');
+                    log('💡 Recomendado: Hacer limpieza completa', 'info');
+                } else {
+                    log('✅ No hay Service Workers activos', 'success');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

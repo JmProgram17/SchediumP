@@ -1,0 +1,25 @@
+{
+  "menu": {
+    "dashboard": "Dashboard",
+    "schedule": "Schedule",
+    "courses": "Courses",
+    "instructors": "Instructors",
+    "rooms": "Rooms",
+    "reports": "Reports",
+    "settings": "Settings",
+    "help": "Help",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "logout": "Sign Out"
+  },
+  "breadcrumbs": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "schedule": "Schedule",
+    "courses": "Courses",
+    "instructors": "Instructors",
+    "rooms": "Rooms",
+    "reports": "Reports",
+    "settings": "Settings"
+  }
+}

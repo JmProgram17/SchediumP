@@ -1,0 +1,1 @@
+export { Typography, Heading, Text, Label, Code, type TypographyProps } from './Typography'

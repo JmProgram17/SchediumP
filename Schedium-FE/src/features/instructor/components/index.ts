@@ -1,0 +1,5 @@
+export { InstructorList } from './InstructorList'
+export { InstructorForm } from './InstructorForm'
+export { InstructorDetail } from './InstructorDetail'
+export { InstructorFilters } from './InstructorFilters'
+export type { InstructorFiltersState } from './InstructorFilters'

@@ -1,0 +1,13 @@
+{
+  "title": "Course Management",
+  "create": "Create Course",
+  "edit": "Edit Course",
+  "delete": "Delete Course",
+  "fields": {
+    "name": "Course Name",
+    "code": "Code",
+    "description": "Description",
+    "credits": "Credits",
+    "semester": "Semester"
+  }
+}

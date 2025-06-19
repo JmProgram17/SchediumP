@@ -1,0 +1,176 @@
+{
+  "title": "Gestión de Horarios",
+  "subtitle": "Administre y visualice los horarios académicos",
+  "views": {
+    "week": "Semana",
+    "month": "Mes",
+    "day": "Día",
+    "agenda": "Agenda",
+    "matrix": "Matriz",
+    "calendar": "Calendario"
+  },
+  "actions": {
+    "createSchedule": "Crear Horario",
+    "editSchedule": "Editar Horario",
+    "deleteSchedule": "Eliminar Horario",
+    "duplicateSchedule": "Duplicar Horario",
+    "exportSchedule": "Exportar Horario",
+    "importSchedule": "Importar Horario",
+    "printSchedule": "Imprimir Horario",
+    "shareSchedule": "Compartir Horario",
+    "publishSchedule": "Publicar Horario",
+    "unpublishSchedule": "Despublicar Horario",
+    "approveSchedule": "Aprobar Horario",
+    "rejectSchedule": "Rechazar Horario",
+    "lockSchedule": "Bloquear Horario",
+    "unlockSchedule": "Desbloquear Horario",
+    "validateSchedule": "Validar Horario",
+    "optimizeSchedule": "Optimizar Horario",
+    "resetSchedule": "Restablecer Horario"
+  },
+  "fields": {
+    "subject": "Materia",
+    "instructor": "Instructor",
+    "room": "Aula",
+    "time": "Hora",
+    "duration": "Duración",
+    "day": "Día",
+    "startTime": "Hora de Inicio",
+    "endTime": "Hora de Fin",
+    "program": "Programa",
+    "group": "Grupo",
+    "semester": "Semestre",
+    "capacity": "Capacidad",
+    "enrolled": "Inscritos",
+    "type": "Tipo de Clase",
+    "status": "Estado",
+    "priority": "Prioridad",
+    "conflicts": "Conflictos",
+    "notes": "Notas"
+  },
+  "types": {
+    "lecture": "Clase Magistral",
+    "laboratory": "Laboratorio",
+    "workshop": "Taller",
+    "seminar": "Seminario",
+    "tutorial": "Tutoría",
+    "exam": "Examen",
+    "practice": "Práctica",
+    "project": "Proyecto",
+    "field_trip": "Salida de Campo",
+    "conference": "Conferencia"
+  },
+  "status": {
+    "draft": "Borrador",
+    "pending": "Pendiente",
+    "approved": "Aprobado",
+    "published": "Publicado",
+    "active": "Activo",
+    "suspended": "Suspendido",
+    "cancelled": "Cancelado",
+    "completed": "Completado"
+  },
+  "conflicts": {
+    "title": "Conflictos de Horario",
+    "instructor": "Conflicto de Instructor",
+    "room": "Conflicto de Aula",
+    "student": "Conflicto de Estudiante",
+    "resource": "Conflicto de Recurso",
+    "time": "Conflicto de Tiempo",
+    "capacity": "Conflicto de Capacidad",
+    "resolved": "Resuelto",
+    "pending": "Pendiente",
+    "critical": "Crítico"
+  },
+  "filters": {
+    "all": "Todos",
+    "today": "Hoy",
+    "thisWeek": "Esta Semana",
+    "thisMonth": "Este Mes",
+    "byProgram": "Por Programa",
+    "byInstructor": "Por Instructor",
+    "byRoom": "Por Aula",
+    "byStatus": "Por Estado",
+    "byType": "Por Tipo",
+    "withConflicts": "Con Conflictos",
+    "withoutConflicts": "Sin Conflictos"
+  },
+  "timeSlots": {
+    "morning": "Mañana",
+    "afternoon": "Tarde",
+    "evening": "Noche",
+    "weekend": "Fin de Semana",
+    "custom": "Personalizado"
+  },
+  "messages": {
+    "noSchedules": "No hay horarios disponibles",
+    "noConflicts": "No se encontraron conflictos",
+    "scheduleCreated": "Horario creado exitosamente",
+    "scheduleUpdated": "Horario actualizado exitosamente",
+    "scheduleDeleted": "Horario eliminado exitosamente",
+    "conflictDetected": "Se detectó un conflicto de horario",
+    "conflictResolved": "Conflicto resuelto exitosamente",
+    "validationPassed": "Validación de horario exitosa",
+    "validationFailed": "La validación del horario falló",
+    "optimizationCompleted": "Optimización completada",
+    "importSuccessful": "Importación exitosa",
+    "exportSuccessful": "Exportación exitosa",
+    "publishSuccessful": "Horario publicado exitosamente",
+    "approvalRequired": "Se requiere aprobación del horario",
+    "scheduleNotFound": "Horario no encontrado",
+    "unauthorizedAccess": "Acceso no autorizado al horario"
+  },
+  "tips": {
+    "dragAndDrop": "Arrastre y suelte para mover clases",
+    "rightClick": "Clic derecho para opciones adicionales",
+    "conflictWarning": "Los conflictos aparecen en rojo",
+    "saveReminder": "Recuerde guardar los cambios",
+    "validationTip": "Valide el horario antes de publicar",
+    "optimizationTip": "Use la optimización automática para mejores resultados"
+  },
+  "modals": {
+    "createEntry": {
+      "title": "Crear Nueva Entrada de Horario",
+      "subtitle": "Complete la información para crear una nueva clase"
+    },
+    "editEntry": {
+      "title": "Editar Entrada de Horario",
+      "subtitle": "Modifique la información de la clase"
+    },
+    "deleteEntry": {
+      "title": "Eliminar Entrada de Horario",
+      "message": "¿Está seguro de que desea eliminar esta entrada? Esta acción no se puede deshacer.",
+      "warning": "Esto también eliminará todas las asignaciones relacionadas."
+    },
+    "resolveConflict": {
+      "title": "Resolver Conflicto",
+      "subtitle": "Seleccione una opción para resolver el conflicto detectado"
+    },
+    "bulkActions": {
+      "title": "Acciones en Lote",
+      "subtitle": "Aplicar acciones a múltiples entradas seleccionadas"
+    }
+  },
+  "bulk": {
+    "selectAll": "Seleccionar Todo",
+    "selectNone": "Deseleccionar Todo",
+    "selectedCount": "{{count}} seleccionado(s)",
+    "actions": {
+      "delete": "Eliminar Seleccionados",
+      "move": "Mover Seleccionados",
+      "copy": "Copiar Seleccionados",
+      "export": "Exportar Seleccionados",
+      "changeStatus": "Cambiar Estado",
+      "assignInstructor": "Asignar Instructor",
+      "assignRoom": "Asignar Aula"
+    }
+  },
+  "widgets": {
+    "todaySchedule": "Horario de Hoy",
+    "upcomingClasses": "Próximas Clases",
+    "conflicts": "Conflictos Pendientes",
+    "roomUtilization": "Utilización de Aulas",
+    "instructorLoad": "Carga de Instructores",
+    "weeklyOverview": "Resumen Semanal"
+  }
+}

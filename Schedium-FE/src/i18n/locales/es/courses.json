@@ -1,0 +1,16 @@
+{
+  "title": "Gestión de Cursos",
+  "create": "Crear Curso",
+  "edit": "Editar Curso",
+  "delete": "Eliminar Curso",
+  "fields": {
+    "name": "Nombre del Curso",
+    "code": "Código",
+    "description": "Descripción",
+    "credits": "Créditos",
+    "semester": "Semestre",
+    "program": "Programa",
+    "prerequisites": "Prerrequisitos",
+    "status": "Estado"
+  }
+}

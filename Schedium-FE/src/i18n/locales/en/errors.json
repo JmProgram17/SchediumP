@@ -1,0 +1,19 @@
+{
+  "general": {
+    "unknown": "Unknown error",
+    "network": "Network error",
+    "server": "Server error",
+    "timeout": "Request timeout",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Access denied",
+    "notFound": "Not found",
+    "conflict": "Data conflict"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalid": "Invalid value",
+    "tooShort": "Too short",
+    "tooLong": "Too long",
+    "invalidFormat": "Invalid format"
+  }
+}

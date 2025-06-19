@@ -1,0 +1,19 @@
+{
+  "general": {
+    "unknown": "Error desconocido",
+    "network": "Error de conexión",
+    "server": "Error del servidor",
+    "timeout": "Tiempo de espera agotado",
+    "unauthorized": "No autorizado",
+    "forbidden": "Acceso denegado",
+    "notFound": "No encontrado",
+    "conflict": "Conflicto de datos"
+  },
+  "validation": {
+    "required": "Este campo es obligatorio",
+    "invalid": "Valor inválido",
+    "tooShort": "Muy corto",
+    "tooLong": "Muy largo",
+    "invalidFormat": "Formato inválido"
+  }
+}

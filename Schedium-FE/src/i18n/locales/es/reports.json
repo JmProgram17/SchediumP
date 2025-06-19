@@ -1,0 +1,13 @@
+{
+  "title": "Gestión de Reportes",
+  "create": "Crear Reporte",
+  "generate": "Generar Reporte",
+  "export": "Exportar",
+  "fields": {
+    "name": "Nombre del Reporte",
+    "type": "Tipo",
+    "format": "Formato",
+    "dateRange": "Rango de Fechas",
+    "filters": "Filtros"
+  }
+}

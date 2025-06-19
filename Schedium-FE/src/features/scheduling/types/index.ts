@@ -1,0 +1,322 @@
+/**
+ * Scheduling Types - Advanced scheduling system with real-time capabilities
+ * Supports complex scheduling scenarios with conflict detection and resolution
+ */
+
+import { BaseEntity, PaginatedResponse, ApiError } from '@/types'
+
+// Time slot definitions
+export interface TimeSlot {
+  start: string // HH:mm format
+  end: string   // HH:mm format
+}
+
+export interface DateRange {
+  startDate: string // ISO date string
+  endDate: string   // ISO date string
+}
+
+// Days of week enum
+export enum DayOfWeek {
+  MONDAY = 'MONDAY',
+  TUESDAY = 'TUESDAY',
+  WEDNESDAY = 'WEDNESDAY',
+  THURSDAY = 'THURSDAY',
+  FRIDAY = 'FRIDAY',
+  SATURDAY = 'SATURDAY',
+  SUNDAY = 'SUNDAY'
+}
+
+// Schedule status
+export enum ScheduleStatus {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  COMPLETED = 'COMPLETED'
+}
+
+// Conflict types
+export enum ConflictType {
+  INSTRUCTOR_OVERLAP = 'INSTRUCTOR_OVERLAP',
+  CLASSROOM_OVERLAP = 'CLASSROOM_OVERLAP',
+  STUDENT_GROUP_OVERLAP = 'STUDENT_GROUP_OVERLAP',
+  RESOURCE_UNAVAILABLE = 'RESOURCE_UNAVAILABLE',
+  TIME_CONSTRAINT = 'TIME_CONSTRAINT',
+  CAPACITY_EXCEEDED = 'CAPACITY_EXCEEDED'
+}
+
+// Priority levels
+export enum Priority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
+}
+
+// Schedule entry (individual class session)
+export interface ScheduleEntry extends BaseEntity {
+  id: string
+  
+  // Core information
+  title: string
+  description?: string
+  
+  // Time information
+  dayOfWeek: DayOfWeek
+  timeSlot: TimeSlot
+  dateRange: DateRange
+  duration: number // minutes
+  
+  // Resources
+  instructorId: string
+  classroomId: string
+  programId: string
+  groupId?: string
+  subjectId?: string
+  
+  // Metadata
+  status: ScheduleStatus
+  priority: Priority
+  color?: string
+  tags?: string[]
+  
+  // Tracking
+  attendanceCount?: number
+  maxCapacity?: number
+  
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly createdBy: string
+  readonly lastModifiedBy: string
+}
+
+// Schedule conflict detection
+export interface ScheduleConflict {
+  id: string
+  type: ConflictType
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  message: string
+  affectedEntries: string[] // ScheduleEntry IDs
+  suggestedResolutions?: ConflictResolution[]
+  createdAt: string
+}
+
+// Conflict resolution suggestions
+export interface ConflictResolution {
+  id: string
+  type: 'reschedule' | 'relocate' | 'reassign' | 'split' | 'cancel'
+  description: string
+  changes: {
+    entryId: string
+    field: keyof ScheduleEntry
+    currentValue: any
+    proposedValue: any
+  }[]
+  impact: {
+    affectedUsers: number
+    difficulty: 'easy' | 'medium' | 'hard'
+    estimatedTime: number // minutes
+  }
+}
+
+// Schedule template for recurring patterns
+export interface ScheduleTemplate extends BaseEntity {
+  id: string
+  name: string
+  description?: string
+  pattern: {
+    type: 'weekly' | 'biweekly' | 'monthly' | 'custom'
+    daysOfWeek: DayOfWeek[]
+    timeSlots: TimeSlot[]
+    duration: number
+    recurrence: {
+      every: number
+      until?: string
+      count?: number
+    }
+  }
+  defaultValues: Partial<ScheduleEntry>
+  isPublic: boolean
+  createdBy: string
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+// Schedule view configurations
+export interface ScheduleView {
+  id: string
+  name: string
+  type: 'calendar' | 'timetable' | 'list' | 'timeline'
+  filters: {
+    instructors?: string[]
+    classrooms?: string[]
+    programs?: string[]
+    dateRange?: DateRange
+    status?: ScheduleStatus[]
+  }
+  groupBy: 'instructor' | 'classroom' | 'program' | 'date' | 'none'
+  sortBy: keyof ScheduleEntry
+  sortOrder: 'asc' | 'desc'
+  displayOptions: {
+    showConflicts: boolean
+    showDetails: boolean
+    compactMode: boolean
+    colorBy: 'instructor' | 'classroom' | 'program' | 'status' | 'priority'
+  }
+}
+
+// Real-time update events
+export interface ScheduleUpdateEvent {
+  type: 'created' | 'updated' | 'deleted' | 'conflict_detected' | 'conflict_resolved'
+  entryId: string
+  entry?: ScheduleEntry
+  conflict?: ScheduleConflict
+  userId: string
+  timestamp: string
+  changes?: {
+    field: keyof ScheduleEntry
+    oldValue: any
+    newValue: any
+  }[]
+}
+
+// Batch operations
+export interface BatchScheduleOperation {
+  type: 'create' | 'update' | 'delete' | 'move' | 'copy'
+  entries: string[] | ScheduleEntry[]
+  changes?: Partial<ScheduleEntry>
+  options?: {
+    validateConflicts: boolean
+    autoResolve: boolean
+    notifyUsers: boolean
+  }
+}
+
+// History tracking
+export interface ScheduleHistoryEntry {
+  id: string
+  action: 'create' | 'update' | 'delete' | 'bulk_operation'
+  entryId: string
+  userId: string
+  timestamp: string
+  changes: {
+    field: keyof ScheduleEntry
+    oldValue: any
+    newValue: any
+  }[]
+  metadata?: {
+    reason?: string
+    batchId?: string
+    autoGenerated?: boolean
+  }
+}
+
+// Statistics and analytics
+export interface ScheduleStatistics {
+  totalEntries: number
+  activeEntries: number
+  conflicts: {
+    total: number
+    byType: Record<ConflictType, number>
+    resolved: number
+    pending: number
+  }
+  utilization: {
+    instructors: Record<string, number> // percentage
+    classrooms: Record<string, number> // percentage
+    timeSlots: Record<string, number> // percentage
+  }
+  trends: {
+    period: string
+    entriesCreated: number
+    conflictsDetected: number
+    utilizationAverage: number
+  }[]
+}
+
+// API DTOs
+export interface CreateScheduleEntryDTO {
+  title: string
+  description?: string
+  dayOfWeek: DayOfWeek
+  timeSlot: TimeSlot
+  dateRange: DateRange
+  duration: number
+  instructorId: string
+  classroomId: string
+  programId: string
+  groupId?: string
+  subjectId?: string
+  priority?: Priority
+  color?: string
+  tags?: string[]
+}
+
+export interface UpdateScheduleEntryDTO {
+  title?: string
+  description?: string
+  dayOfWeek?: DayOfWeek
+  timeSlot?: TimeSlot
+  dateRange?: DateRange
+  duration?: number
+  instructorId?: string
+  classroomId?: string
+  programId?: string
+  groupId?: string
+  subjectId?: string
+  status?: ScheduleStatus
+  priority?: Priority
+  color?: string
+  tags?: string[]
+}
+
+export interface ScheduleEntryListQuery {
+  page?: number
+  limit?: number
+  search?: string
+  instructorId?: string
+  classroomId?: string
+  programId?: string
+  groupId?: string
+  dateRange?: DateRange
+  status?: ScheduleStatus[]
+  priority?: Priority[]
+  dayOfWeek?: DayOfWeek[]
+  sortBy?: keyof ScheduleEntry
+  sortOrder?: 'asc' | 'desc'
+  includeConflicts?: boolean
+}
+
+// API Response types
+export interface ScheduleEntryListResponse extends PaginatedResponse<ScheduleEntry> {
+  conflicts?: ScheduleConflict[]
+  statistics?: ScheduleStatistics
+}
+
+export interface ScheduleEntryResponse {
+  data: ScheduleEntry
+  conflicts?: ScheduleConflict[]
+  message?: string
+}
+
+export interface ConflictCheckResponse {
+  hasConflicts: boolean
+  conflicts: ScheduleConflict[]
+  resolutions?: ConflictResolution[]
+}
+
+export interface BatchOperationResponse {
+  success: boolean
+  processedCount: number
+  conflicts: ScheduleConflict[]
+  errors: {
+    entryId: string
+    error: string
+  }[]
+}
+
+export interface ScheduleError extends ApiError {
+  field?: keyof ScheduleEntry
+  conflictId?: string
+}

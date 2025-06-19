@@ -1,0 +1,15 @@
+{
+  "title": "Gestión de Instructores",
+  "create": "Crear Instructor",
+  "edit": "Editar Instructor",
+  "delete": "Eliminar Instructor",
+  "fields": {
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "email": "Correo Electrónico",
+    "phone": "Teléfono",
+    "department": "Departamento",
+    "specialization": "Especialización",
+    "status": "Estado"
+  }
+}
