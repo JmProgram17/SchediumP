@@ -276,8 +276,8 @@ const defaultQueryConfig: QueryClientConfig = {
       // Error handling
       onError: handleQueryError,
       
-      // Only fetch if user is authenticated for protected resources
-      enabled: () => authorizationService.isSessionValid(),
+      // Note: enabled should be handled per-query, not globally
+      // This was causing queries to not refetch after invalidation
     },
     
     mutations: {
@@ -285,6 +285,15 @@ const defaultQueryConfig: QueryClientConfig = {
       retry: (failureCount, error) => {
         // Only retry network errors for mutations
         const enhancedError = error as EnhancedApiError
+        
+        // Don't retry CONFLICT or BUSINESS_ERROR (including program duplicates)
+        if (enhancedError.type === 'BUSINESS_ERROR' || 
+            enhancedError.type === 'VALIDATION_ERROR' ||
+            enhancedError.error_code === 'CONFLICT' ||
+            enhancedError.error_code === 'PROGRAM_ALREADY_EXISTS') {
+          return false
+        }
+        
         return isNetworkError(enhancedError) && failureCount < 2
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),

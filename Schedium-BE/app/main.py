@@ -20,6 +20,8 @@ from app.core.middleware.security import SecurityMiddleware
 from app.core.security.cors import configure_cors
 from app.core.security.headers import SecurityHeadersMiddleware
 from app.database import init_db
+# Import all models to register them with SQLAlchemy
+import app.models  # noqa: F401
 
 # Setup logging
 setup_logging()
@@ -60,6 +62,22 @@ app = FastAPI(
         "filter": True,
     } if not settings.IS_PRODUCTION else None,
 )
+
+# UTF-8 Response Middleware
+@app.middleware("http")
+async def utf8_response_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """Ensure all responses use UTF-8 encoding."""
+    response = await call_next(request)
+    
+    # Add UTF-8 charset to content-type if it's JSON or text
+    if response.headers.get("content-type"):
+        content_type = response.headers["content-type"]
+        if "application/json" in content_type and "charset" not in content_type:
+            response.headers["content-type"] = "application/json; charset=utf-8"
+        elif "text/" in content_type and "charset" not in content_type:
+            response.headers["content-type"] = f"{content_type}; charset=utf-8"
+    
+    return response
 
 # Middleware order is important!
 # 1. Request ID (needed by other middlewares)

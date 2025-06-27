@@ -51,6 +51,8 @@ const iconMap = {
   Close: icons.XIcon,
   ArrowDropDown: icons.ChevronDownIcon,
   ArrowDropUp: icons.ChevronUpIcon,
+  'chevron-right': icons.ChevronRightIcon,
+  'check-circle': icons.CheckCircleIcon,
   
   // Actions
   Add: icons.PlusIcon,
@@ -111,12 +113,12 @@ export interface IconProps extends VariantProps<typeof iconVariants> {
   'aria-label'?: string
 }
 
-interface IconWrapperProps extends IconProps {
-  ref?: React.Ref<SVGSVGElement>
-}
+// interface _IconWrapperProps extends IconProps {
+//   ref?: React.Ref<SVGSVGElement>
+// }
 
 export const Icon = forwardRef<SVGSVGElement, IconProps>(
-  ({ name, size, color, className, ...props }, ref) => {
+  ({ name, size, color, className, ...props }, _ref) => {
     const IconComponent = iconMap[name]
     
     if (!IconComponent) {

@@ -111,6 +111,9 @@ export type { EnhancedRequestOptions } from './enhanced-api.service'
 // Legacy export for backward compatibility
 export { axiosClient } from './axios-client'
 
+// Default API client export
+export { axiosClient as api } from './axios-client'
+
 /**
  * Quick start guide for using the enhanced API layer:
  * 

@@ -104,7 +104,23 @@ export const useCreateProgram = () => {
       if (context?.previousData) {
         queryClient.setQueriesData({ queryKey: programKeys.lists() }, context.previousData)
       }
-      toast.error(error.message || 'Error al crear programa académico')
+      
+      // Handle specific error codes
+      const actualError = error?.error || error
+      const errorData = actualError?.response?.data || actualError?.data || actualError
+      const detail = errorData?.detail || errorData?.message || actualError?.message
+      const errorCode = errorData?.error_code
+      
+      let errorMessage = 'Error al crear programa académico'
+      if (errorCode === 'PROGRAM_ALREADY_EXISTS' || errorCode === 'CONFLICT') {
+        errorMessage = 'Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.'
+      } else if (detail && detail.includes('mismo nombre') || detail.includes('misma combinación')) {
+        errorMessage = 'Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.'
+      } else if (detail) {
+        errorMessage = detail
+      }
+      
+      toast.error(errorMessage)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: programKeys.lists() })
@@ -156,7 +172,23 @@ export const useUpdateProgram = () => {
       if (context?.previousLists) {
         queryClient.setQueriesData({ queryKey: programKeys.lists() }, context.previousLists)
       }
-      toast.error(error.message || 'Error al actualizar programa académico')
+      
+      // Handle specific error codes
+      const actualError = error?.error || error
+      const errorData = actualError?.response?.data || actualError?.data || actualError
+      const detail = errorData?.detail || errorData?.message || actualError?.message
+      const errorCode = errorData?.error_code
+      
+      let errorMessage = 'Error al actualizar programa académico'
+      if (errorCode === 'PROGRAM_ALREADY_EXISTS' || errorCode === 'CONFLICT') {
+        errorMessage = 'Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.'
+      } else if (detail && detail.includes('mismo nombre') || detail.includes('misma combinación')) {
+        errorMessage = 'Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.'
+      } else if (detail) {
+        errorMessage = detail
+      }
+      
+      toast.error(errorMessage)
     },
     onSettled: (_, __, { id }) => {
       queryClient.invalidateQueries({ queryKey: programKeys.detail(id) })
@@ -197,7 +229,45 @@ export const useDeleteProgram = () => {
       if (context?.previousData) {
         queryClient.setQueriesData({ queryKey: programKeys.lists() }, context.previousData)
       }
-      toast.error(error.message || 'Error al eliminar programa académico')
+      
+      // Debug: log the full error structure
+      console.error('Delete program error:', error)
+      console.error('Error keys:', Object.keys(error || {}))
+      console.error('Error.error:', error?.error)
+      console.error('Error.error keys:', Object.keys(error?.error || {}))
+      console.error('Error.error.response:', error?.error?.response)
+      console.error('Error.error.response.data:', error?.error?.response?.data)
+      console.error('Error.error.message:', error?.error?.message)
+      console.error('Error.error.status:', error?.error?.status)
+      
+      // Handle specific error codes from backend
+      let errorMessage = 'Error al eliminar programa académico'
+      
+      // Try to extract error information from different possible structures
+      const actualError = error?.error || error
+      const errorData = actualError?.response?.data || actualError?.data || actualError
+      const detail = errorData?.detail || errorData?.message || actualError?.message
+      const errorCode = errorData?.error_code
+      
+      console.log('Extracted error data:', errorData)
+      console.log('Extracted detail:', detail)
+      console.log('Extracted error code:', errorCode)
+      
+      // Check for specific error patterns
+      if (errorCode === 'PROGRAM_HAS_GROUPS') {
+        errorMessage = 'No se puede eliminar el programa porque tiene grupos de estudiantes asignados. Primero debe desactivar o transferir los grupos.'
+      } else if (detail) {
+        // Check if detail contains information about groups
+        if (detail.includes('student groups') || detail.includes('grupos') || detail.includes('Cannot delete program')) {
+          errorMessage = 'No se puede eliminar el programa porque tiene grupos de estudiantes asignados. Primero debe desactivar o transferir los grupos.'
+        } else {
+          errorMessage = detail
+        }
+      }
+      
+      console.log('Final error message:', errorMessage)
+      
+      toast.error(errorMessage)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: programKeys.lists() })
@@ -218,7 +288,16 @@ export const useBulkDeletePrograms = () => {
       toast.success(`${result.deletedCount} programas eliminados exitosamente`)
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Error en eliminación masiva')
+      let errorMessage = 'Error en eliminación masiva'
+      if (error?.response?.data?.error_code === 'PROGRAM_HAS_GROUPS') {
+        errorMessage = 'Algunos programas no se pueden eliminar porque tienen grupos de estudiantes asignados.'
+      } else if (error?.response?.data?.detail) {
+        errorMessage = error.response.data.detail
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
+      toast.error(errorMessage)
     }
   })
 }

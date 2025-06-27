@@ -4,7 +4,7 @@ Handles levels, chains, nomenclatures, programs, and student groups.
 """
 
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -60,6 +60,20 @@ async def get_levels(
 
     return SuccessResponse(
         data=levels, message="Levels retrieved successfully", errors=None
+    )
+
+
+@router.get("/levels/all", response_model=SuccessResponse[List[Level]])
+async def get_all_levels(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> SuccessResponse[List[Level]]:
+    """Get all levels for dropdown/select components."""
+    service = AcademicService(db)
+    levels = service.get_all_levels()
+
+    return SuccessResponse(
+        data=levels, message="All levels retrieved successfully", errors=None
     )
 
 
@@ -138,6 +152,20 @@ async def get_chains(
     )
 
 
+@router.get("/chains/all", response_model=SuccessResponse[List[Chain]])
+async def get_all_chains(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> SuccessResponse[List[Chain]]:
+    """Get all chains for dropdown/select components."""
+    service = AcademicService(db)
+    chains = service.get_all_chains()
+
+    return SuccessResponse(
+        data=chains, message="All chains retrieved successfully", errors=None
+    )
+
+
 @router.post("/chains", response_model=CreatedResponse[Chain])
 async def create_chain(
     chain_in: ChainCreate,
@@ -211,6 +239,20 @@ async def get_nomenclatures(
 
     return SuccessResponse(
         data=nomenclatures, message="Nomenclatures retrieved successfully", errors=None
+    )
+
+
+@router.get("/nomenclatures/all", response_model=SuccessResponse[List[Nomenclature]])
+async def get_all_nomenclatures(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> SuccessResponse[List[Nomenclature]]:
+    """Get all nomenclatures for dropdown/select components."""
+    service = AcademicService(db)
+    nomenclatures = service.get_all_nomenclatures()
+
+    return SuccessResponse(
+        data=nomenclatures, message="All nomenclatures retrieved successfully", errors=None
     )
 
 
@@ -363,7 +405,7 @@ async def delete_program(
 async def get_student_groups(
     params: PaginationParams = Depends(get_pagination_params),
     search: Optional[str] = Query(
-        None, description="Search by group number or program"
+        None, description="Search by group number, program name, nomenclature code, schedule name, or level type"
     ),
     program_id: Optional[int] = Query(None, description="Filter by program"),
     schedule_id: Optional[int] = Query(None, description="Filter by schedule"),

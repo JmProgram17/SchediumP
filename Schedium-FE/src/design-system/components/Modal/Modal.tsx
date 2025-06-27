@@ -6,12 +6,12 @@
 import React, { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
+import { cn } from '@/utils/cn'
 
 import { Button } from '../Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../Card'
 
 export interface ModalProps {
-  isOpen?: boolean
   open?: boolean
   onClose: () => void
   title?: string
@@ -33,8 +33,7 @@ const sizeClasses = {
 }
 
 export const Modal: React.FC<ModalProps> = ({
-  isOpen,
-  open,
+  open = false,
   onClose,
   title,
   children,
@@ -45,7 +44,7 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   overlayClassName
 }) => {
-  const modalOpen = open ?? isOpen ?? false
+  const modalOpen = open
   
   useEffect(() => {
     if (!closeOnEscape) return
@@ -80,7 +79,7 @@ export const Modal: React.FC<ModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 ${overlayClassName}`}
+        className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9998] ${overlayClassName}`}
         onClick={closeOnOverlayClick ? (e) => {
           if (e.target === e.currentTarget) {
             onClose()
@@ -91,10 +90,15 @@ export const Modal: React.FC<ModalProps> = ({
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className={`w-full ${sizeClasses[size]} max-h-[90vh] overflow-auto ${className}`}
+          className={`w-full ${sizeClasses[size]} ${className}`}
+          style={{
+            maxHeight: 'calc(100vh - 8rem)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          <Card>
+          <Card className="flex flex-col h-full">
             {title && (
               <CardHeader className={`flex flex-row items-center justify-between space-y-0 ${showCloseButton ? 'pb-4' : ''}`}>
                 <CardTitle>{title}</CardTitle>
@@ -106,7 +110,10 @@ export const Modal: React.FC<ModalProps> = ({
               </CardHeader>
             )}
             
-            <CardContent className={title ? '' : 'relative'}>
+            <CardContent className={cn(
+              "overflow-y-auto overflow-x-hidden flex-1",
+              title ? '' : 'relative'
+            )}>
               {!title && showCloseButton && (
                 <Button 
                   variant="ghost" 

@@ -15,7 +15,7 @@ import {
 } from '../types'
 
 export class StudentService extends BaseApiService {
-  protected baseUrl = '/api/v1'
+  protected baseUrl = ''
   private readonly endpoint = '/academic/students'
 
   /**

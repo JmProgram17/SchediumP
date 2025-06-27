@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Card,
@@ -38,7 +38,7 @@ import {
 
 type ViewMode = 'calendar' | 'table'
 
-export function ConsultasPage() {
+function ConsultasPage() {
   const [activeTab, setActiveTab] = useState('instructor-schedule')
   const [viewMode, setViewMode] = useState<ViewMode>('calendar')
   const [filters, setFilters] = useState({
@@ -51,28 +51,45 @@ export function ConsultasPage() {
     building: ''
   })
 
-  // Data hooks
-  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList()
-  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList()
-  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList()
-  const { data: studentsData, isLoading: studentsLoading } = useStudentList()
+  // Data hooks - Load only when needed
+  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList(
+    { limit: 50 },
+    { enabled: activeTab === 'instructor-schedule' || activeTab === 'instructor-workload' }
+  )
+  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList(
+    {},
+    { enabled: activeTab.includes('schedule') }
+  )
+  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList(
+    { limit: 50 },
+    { enabled: activeTab === 'classroom-availability' }
+  )
+  const { data: studentsData, isLoading: studentsLoading } = useStudentList(
+    { limit: 50 },
+    { enabled: activeTab === 'student-schedule' }
+  )
 
-  const isLoading = instructorsLoading || schedulesLoading || classroomsLoading || studentsLoading
+  const isLoading = (
+    (activeTab === 'instructor-schedule' && instructorsLoading) ||
+    (activeTab === 'classroom-availability' && classroomsLoading) ||
+    (activeTab === 'student-schedule' && studentsLoading) ||
+    (activeTab.includes('schedule') && schedulesLoading)
+  )
 
-  const trimesters = [
+  const trimesters = useMemo(() => [
     { value: '2024-1', label: 'Primer Trimestre 2024' },
     { value: '2024-2', label: 'Segundo Trimestre 2024' },
     { value: '2024-3', label: 'Tercer Trimestre 2024' }
-  ]
+  ], [])
 
-  const shifts = [
+  const shifts = useMemo(() => [
     { value: 'all', label: 'Todas las jornadas' },
     { value: 'morning', label: 'Mañana (6:00 - 12:00)' },
     { value: 'afternoon', label: 'Tarde (12:00 - 18:00)' },
     { value: 'night', label: 'Noche (18:00 - 22:00)' }
-  ]
+  ], [])
 
-  const days = [
+  const days = useMemo(() => [
     { value: 'all', label: 'Todos los días' },
     { value: 'monday', label: 'Lunes' },
     { value: 'tuesday', label: 'Martes' },
@@ -80,24 +97,19 @@ export function ConsultasPage() {
     { value: 'thursday', label: 'Jueves' },
     { value: 'friday', label: 'Viernes' },
     { value: 'saturday', label: 'Sábado' }
-  ]
+  ], [])
 
-  const updateFilter = (key: string, value: string) => {
+  const updateFilter = useCallback((key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-  }
+  }, [])
 
-  const exportData = () => {
+  const exportData = useCallback(() => {
     // Export functionality
     console.log('Exporting data for:', activeTab)
-  }
+  }, [activeTab])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
-  }
+  // Show interface immediately with progressive loading
+  const showLoadingState = isLoading && filters.instructor
 
   return (
     <div className="space-y-6">
@@ -578,3 +590,5 @@ export function ConsultasPage() {
     </div>
   )
 }
+
+export default memo(ConsultasPage)

@@ -8,7 +8,7 @@ export const ROUTES = {
   
   // Private routes
   DASHBOARD: '/dashboard',
-  PROGRAMMING: '/programacion',
+  PROGRAMMING: '/programming',
   CONSULTAS: '/consultas',
   INFORMES: '/informes',
   
@@ -31,6 +31,7 @@ export const ROUTES = {
     INSTRUCTORS: '/hr/instructors',
     DEPARTMENTS: '/hr/departments',
     POSITIONS: '/hr/positions',
+    COORDINATIONS: '/hr/coordinations',
   },
   
   // Infrastructure module

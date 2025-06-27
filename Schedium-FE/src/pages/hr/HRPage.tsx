@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -34,13 +34,13 @@ import {
   User
 } from 'lucide-react'
 
-export function HRPage() {
+function HRPage() {
   const navigate = useNavigate()
   const [activeModule, setActiveModule] = useState<string | null>(null)
 
-  // Data hooks
-  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList()
-  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList()
+  // Data hooks - Load only summary data
+  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList({ limit: 1 })
+  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList({ limit: 1 })
 
   const isLoading = instructorsLoading || schedulesLoading
 
@@ -554,3 +554,5 @@ export function HRPage() {
     </div>
   )
 }
+
+export default memo(HRPage)

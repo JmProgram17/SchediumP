@@ -1,593 +1,1434 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import React, { useState, useCallback, useMemo, memo, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'react-hot-toast'
+// import { useModalExpansion } from '@/hooks/useModalExpansion' // Hook doesn't exist
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
-  Badge,
-  Select,
   Input,
-  LoadingSpinner
+  LoadingSpinner,
+  Modal,
+  // SearchableSelect, // Component doesn't exist
+  // type SearchableSelectOption // Type doesn't exist
 } from '@/design-system/components'
-import { DragDropScheduleMatrix } from '@/features/scheduling/components/DragDropScheduleMatrix'
-import { useScheduleList } from '@/features/schedule/hooks'
 import { useInstructorList } from '@/features/instructor/hooks'
-import { useProgramList } from '@/features/program/hooks'
+import { useGroupList } from '@/features/scheduling/hooks'
 import { useClassroomList } from '@/features/classroom/hooks'
+import { useTimeBlockList, useDayTimeBlockList, useClassScheduleList, useQuarterList, useUpdateClassSchedule, useDeleteClassSchedule } from '@/features/scheduling/hooks'
 import {
-  Calendar,
+  Search,
   Filter,
-  Users,
+  Eye,
+  Calendar,
   Clock,
   MapPin,
-  BookOpen,
-  ChevronDown,
-  RefreshCw,
-  Settings,
+  Users,
+  User,
   AlertCircle,
-  CheckCircle,
-  Save,
-  Undo,
-  Redo
+  Plus,
+  Edit,
+  Trash2
 } from 'lucide-react'
+import { cn } from '@/utils/cn'
+import type { ClassSchedule } from '@/features/scheduling/types'
+import { useAuthStore } from '@/stores/auth.store'
 
-type FilterState = {
-  trimester: string
-  shift: string
-  day: string
-  instructor: string
-  program: string
-  classroom: string
+// Memoized cell component for better performance
+const ScheduleCellComponent = memo(({ 
+  cell, 
+  onCellClick, 
+  getCellColor, 
+  selectedContext 
+}: {
+  cell: ScheduleCell
+  onCellClick: (cell: ScheduleCell) => void
+  getCellColor: (status: CellStatus) => string
+  selectedContext: SelectedContext | null
+}) => {
+  return (
+    <button
+      onClick={() => onCellClick(cell)}
+      disabled={!selectedContext || !cell.dayTimeBlockId}
+      className={cn(
+        "w-full h-20 rounded-lg border-2 transition-all duration-200",
+        getCellColor(cell.status),
+        selectedContext && cell.dayTimeBlockId
+          ? "cursor-pointer"
+          : "cursor-not-allowed opacity-50"
+      )}
+    >
+      {cell.classSchedule && (
+        <div className="p-2 text-xs">
+          <p className="font-medium truncate">{cell.classSchedule.subject}</p>
+          {cell.status === 'partial' && (
+            <div className="flex items-center justify-center mt-1">
+              <AlertCircle className="w-4 h-4 text-orange-500" />
+            </div>
+          )}
+        </div>
+      )}
+    </button>
+  )
+})
+
+ScheduleCellComponent.displayName = 'ScheduleCellComponent'
+
+// Memoized search results component
+const SearchResults = memo(({ 
+  results, 
+  searchType, 
+  onSelectContext 
+}: {
+  results: any[]
+  searchType: SearchType
+  onSelectContext: (item: any) => void
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-h-64 overflow-y-auto z-50"
+    >
+      {results.map((item: any) => (
+        <button
+          key={item.id}
+          onClick={() => onSelectContext(item)}
+          className="w-full px-4 py-2 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          {searchType === 'instructor' && (
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span>{item.first_name} {item.last_name}</span>
+            </div>
+          )}
+          {searchType === 'ficha' && (
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span>{item.group_number} - {item.program?.name}</span>
+            </div>
+          )}
+          {searchType === 'ambiente' && (
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span>{item.room_number} - {item.campus?.address}</span>
+            </div>
+          )}
+        </button>
+      ))}
+    </motion.div>
+  )
+})
+
+SearchResults.displayName = 'SearchResults'
+
+type SearchType = 'instructor' | 'ficha' | 'ambiente'
+type SelectedContext = {
+  type: SearchType
+  value: string
+  label: string
+  id: string
 }
 
-export function ProgrammingPage() {
-  const [filters, setFilters] = useState<FilterState>({
-    trimester: 'all',
-    shift: 'all',
-    day: 'all',
-    instructor: 'all',
-    program: 'all',
-    classroom: 'all'
+type CellStatus = 'empty' | 'complete' | 'partial'
+
+interface ScheduleCell {
+  dayTimeBlockId: string
+  status: CellStatus
+  classSchedule?: ClassSchedule
+}
+
+function ProgrammingPage() {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchType, setSearchType] = useState<SearchType>('instructor')
+  const [showFilters, setShowFilters] = useState(false)
+  const [selectedContext, setSelectedContext] = useState<SelectedContext | null>(null)
+  const [showProgrammingModal, setShowProgrammingModal] = useState(false)
+  const [selectedCell, setSelectedCell] = useState<{ blockIndex: number; dayIndex: number } | null>(null)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingClassId, setEditingClassId] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    subject: '',
+    instructor_id: '',
+    group_id: '',
+    classroom_id: ''
   })
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<'week' | 'day'>('week')
-  const [currentWeek, setCurrentWeek] = useState(new Date())
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [conflicts, setConflicts] = useState(0)
 
-  // Data hooks
-  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList()
-  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList()
-  const { data: programsData, isLoading: programsLoading } = useProgramList()
-  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList()
+  // Debug: Check auth state
+  const { isAuthenticated, user, token } = useAuthStore()
 
-  const isLoading = schedulesLoading || instructorsLoading || programsLoading || classroomsLoading
-
-  // Get current trimester
-  const getCurrentTrimester = () => {
-    const month = new Date().getMonth() + 1
-    if (month >= 1 && month <= 4) return '2024-1'
-    if (month >= 5 && month <= 8) return '2024-2'
-    return '2024-3'
-  }
-
-  const trimesters = [
-    { value: 'all', label: 'Todos los trimestres' },
-    { value: '2024-1', label: 'Primer Trimestre 2024' },
-    { value: '2024-2', label: 'Segundo Trimestre 2024' },
-    { value: '2024-3', label: 'Tercer Trimestre 2024' }
-  ]
-
-  const shifts = [
-    { value: 'all', label: 'Todas las jornadas' },
-    { value: 'morning', label: 'Mañana (6:00 - 12:00)' },
-    { value: 'afternoon', label: 'Tarde (12:00 - 18:00)' },
-    { value: 'night', label: 'Noche (18:00 - 22:00)' },
-    { value: 'mixed', label: 'Mixta' }
-  ]
-
-  const days = [
-    { value: 'all', label: 'Todos los días' },
-    { value: 'monday', label: 'Lunes' },
-    { value: 'tuesday', label: 'Martes' },
-    { value: 'wednesday', label: 'Miércoles' },
-    { value: 'thursday', label: 'Jueves' },
-    { value: 'friday', label: 'Viernes' },
-    { value: 'saturday', label: 'Sábado' }
-  ]
-
-  const updateFilter = (key: keyof FilterState, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-  }
-
-  const clearAllFilters = () => {
-    setFilters({
-      trimester: getCurrentTrimester(),
-      shift: 'all',
-      day: 'all',
-      instructor: 'all',
-      program: 'all',
-      classroom: 'all'
+  // Data hooks - Always load for search functionality
+  const instructorQuery = useInstructorList(
+    { limit: 200 }, // Increased limit for better search
+    { enabled: isAuthenticated }
+  )
+  const groupQuery = useGroupList(
+    { limit: 200 },
+    { enabled: isAuthenticated }
+  )
+  const classroomQuery = useClassroomList(
+    { limit: 200 },
+    { enabled: isAuthenticated }
+  )
+  
+  const { data: instructorsData, isLoading: instructorsLoading, error: instructorsError, status: instructorsStatus } = instructorQuery
+  const { data: groupsData, isLoading: groupsLoading, error: groupsError, status: groupsStatus } = groupQuery
+  const { data: classroomsData, isLoading: classroomsLoading, error: classroomsError, status: classroomsStatus } = classroomQuery
+  
+  // Enhanced debugging with React Query status - DISABLED
+  /* useEffect(() => {
+    console.log('🔄 Query Status Update:', {
+      instructors: { status: instructorsStatus, loading: instructorsLoading, error: instructorsError, dataCount: instructorsData?.items?.length || 0 },
+      groups: { status: groupsStatus, loading: groupsLoading, error: groupsError, dataCount: groupsData?.items?.length || 0 },
+      classrooms: { status: classroomsStatus, loading: classroomsLoading, error: classroomsError, dataCount: classroomsData?.items?.length || 0 }
     })
-  }
-
-  const formatWeekDate = (date: Date) => {
-    const startOfWeek = new Date(date)
-    startOfWeek.setDate(date.getDate() - date.getDay() + 1) // Start on Monday
-    const endOfWeek = new Date(startOfWeek)
-    endOfWeek.setDate(startOfWeek.getDate() + 5) // End on Saturday
-
-    return `${startOfWeek.toLocaleDateString('es-CO', { 
-      day: 'numeric', 
-      month: 'short' 
-    })} - ${endOfWeek.toLocaleDateString('es-CO', { 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
-    })}`
-  }
-
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentWeek)
-    newDate.setDate(currentWeek.getDate() + (direction === 'next' ? 7 : -7))
-    setCurrentWeek(newDate)
-  }
-
-  const goToCurrentWeek = () => {
-    setCurrentWeek(new Date())
-  }
-
+  }, [instructorsStatus, groupsStatus, classroomsStatus, instructorsData, groupsData, classroomsData, instructorsError, groupsError, classroomsError]) */
+  
+  // Load schedule data when needed - ENABLE ALL FOR TESTING
+  const { data: timeBlocksData, refetch: refetchTimeBlocks } = useTimeBlockList({ 
+    enabled: isAuthenticated
+  })
+  const { data: dayTimeBlocksData, refetch: refetchDayTimeBlocks } = useDayTimeBlockList({ 
+    enabled: isAuthenticated
+  })
+  
+  // Debug day time blocks data
   useEffect(() => {
-    // Initialize with current trimester
-    setFilters(prev => ({ ...prev, trimester: getCurrentTrimester() }))
+    if (dayTimeBlocksData) {
+      console.log('📅 Day time blocks loaded:', dayTimeBlocksData?.items?.length || 0, 'items')
+      console.log('📅 Day time blocks data structure:', dayTimeBlocksData)
+      console.log('📅 Sample day time block:', dayTimeBlocksData?.items?.[0])
+    }
+  }, [dayTimeBlocksData])
+  const { data: classSchedulesData, refetch: refetchClassSchedules } = useClassScheduleList({}, { 
+    enabled: isAuthenticated
+  })
+  const { data: quartersData } = useQuarterList({ 
+    enabled: isAuthenticated 
+  })
+
+  // Mutation hooks for class schedule operations
+  const updateClassSchedule = useUpdateClassSchedule()
+  const deleteClassSchedule = useDeleteClassSchedule()
+
+  // Modal expansion hook
+  // const { expandedHeight, isExpanded, handleDropdownOpen, currentOpenDropdown } = useModalExpansion()
+  const expandedHeight = 'auto'
+  const isExpanded = false
+  const handleDropdownOpen = () => {}
+  const currentOpenDropdown = null
+  
+  // State to track which dropdown is open
+  const [openDropdownField, setOpenDropdownField] = useState<string | null>(null)
+  
+  // Handle single dropdown logic
+  const handleSingleDropdownOpen = useCallback((fieldName: string, isOpen: boolean) => {
+    if (isOpen) {
+      // Close any other open dropdown and open this one
+      setOpenDropdownField(fieldName)
+    } else {
+      // Close only if this dropdown was open
+      if (openDropdownField === fieldName) {
+        setOpenDropdownField(null)
+      }
+    }
+    // Always call the modal expansion handler
+    handleDropdownOpen(fieldName, isOpen)
+  }, [openDropdownField, handleDropdownOpen])
+
+  // Debounced search query
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery)
+    }, 300)
+    
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+  
+  const isLoading = instructorsLoading || groupsLoading || classroomsLoading
+  
+  // Enhanced debug info
+  const debugInfo = {
+    isAuthenticated,
+    searchType,
+    instructorsCount: instructorsData?.items?.length || 0,
+    groupsCount: groupsData?.items?.length || 0,
+    classroomsCount: classroomsData?.items?.length || 0,
+    instructorsStatus,
+    groupsStatus,
+    classroomsStatus,
+    instructorsError: instructorsError?.message || null,
+    groupsError: groupsError?.message || null,
+    classroomsError: classroomsError?.message || null,
+    instructorsLoading,
+    groupsLoading,
+    classroomsLoading
+  }
+
+  // Get current quarter
+  const currentQuarter = useMemo(() => {
+    return quartersData?.items?.find((q: any) => {
+      const now = new Date()
+      const start = new Date(q.start_date)
+      const end = new Date(q.end_date)
+      return now >= start && now <= end
+    })
+  }, [quartersData])
+
+  // Prepare options for select components - memoized for performance
+  const instructorOptions = useMemo(() => {
+    return (instructorsData?.items || []).map((instructor: any) => ({
+      value: instructor.instructor_id.toString(),
+      label: `${instructor.first_name} ${instructor.last_name}`,
+      subtext: instructor.email
+    }))
+  }, [instructorsData])
+
+  const groupOptions = useMemo(() => {
+    return (groupsData?.items || []).map((group: any) => ({
+      value: group.group_id.toString(),
+      label: `Ficha ${group.group_number}`,
+      subtext: group.program?.name || 'Programa no especificado'
+    }))
+  }, [groupsData])
+
+  const classroomOptions = useMemo(() => {
+    return (classroomsData?.items || []).map((classroom: any) => ({
+      value: classroom.classroom_id.toString(),
+      label: `${classroom.room_number}`,
+      subtext: `${classroom.classroom_type || 'Ambiente'} - ${classroom.campus?.address || 'Sede no especificada'}`
+    }))
+  }, [classroomsData])
+
+  // Days of the week - memoized
+  const daysOfWeek = useMemo(() => [
+    { id: 1, name: 'Lunes' },
+    { id: 2, name: 'Martes' },
+    { id: 3, name: 'Miércoles' },
+    { id: 4, name: 'Jueves' },
+    { id: 5, name: 'Viernes' },
+    { id: 6, name: 'Sábado' }
+  ], [])
+
+  // Search functionality with debouncing
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query)
+  }, [])
+  
+  // Function to normalize text for search (handles accents and special characters)
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^\w\s]/g, '') // Remove special characters except spaces
+  }
+
+  // Process search results when debounced query changes
+  useEffect(() => {
+    let results: any[] = []
+    
+    // If no search query, show initial results (first few items)
+    if (!debouncedQuery.trim()) {
+      switch (searchType) {
+        case 'instructor':
+          results = (instructorsData?.items || []).slice(0, 10)
+          break
+        case 'ficha':
+          results = (groupsData?.items || []).slice(0, 10)
+          break
+        case 'ambiente':
+          results = (classroomsData?.items || []).slice(0, 10)
+          break
+      }
+      setSearchResults(results)
+      return
+    }
+
+    // Filter results based on search query
+    const normalizedQuery = normalizeText(debouncedQuery)
+
+    switch (searchType) {
+      case 'instructor':
+        const instructors = instructorsData?.items || []
+        results = instructors.filter((instructor: any) => {
+          const fullName = normalizeText(`${instructor.first_name || ''} ${instructor.last_name || ''}`)
+          const email = normalizeText(instructor.email || '')
+          const phoneNumber = normalizeText((instructor.phone_number || '').toString())
+          
+          return fullName.includes(normalizedQuery) || 
+                 email.includes(normalizedQuery) ||
+                 phoneNumber.includes(normalizedQuery)
+        })
+        break
+      case 'ficha':
+        const groups = groupsData?.items || []
+        results = groups.filter((group: any) => {
+          const groupNumber = normalizeText((group.group_number || '').toString())
+          const programName = normalizeText(group.program?.name || '')
+          const code = normalizeText(group.code || '')
+          
+          return groupNumber.includes(normalizedQuery) ||
+                 programName.includes(normalizedQuery) ||
+                 code.includes(normalizedQuery)
+        })
+        break
+      case 'ambiente':
+        const classrooms = classroomsData?.items || []
+        results = classrooms.filter((classroom: any) => {
+          const roomNumber = normalizeText(classroom.room_number || '')
+          const campusAddress = normalizeText(classroom.campus?.address || '')
+          const classroomType = normalizeText(classroom.classroom_type || '')
+          
+          return roomNumber.includes(normalizedQuery) ||
+                 campusAddress.includes(normalizedQuery) ||
+                 classroomType.includes(normalizedQuery)
+        })
+        break
+    }
+
+    setSearchResults(results.slice(0, 15))
+    
+    // Debug UTF-8 encoding issues
+    if (results.length > 0) {
+      console.log('🔤 Search results sample:')
+      console.log('Original data:', results[0])
+      if (searchType === 'ficha' && results[0]?.program?.name) {
+        console.log('Program name:', results[0].program.name)
+        console.log('Program name chars:', [...results[0].program.name])
+      }
+    }
+  }, [debouncedQuery, searchType, instructorsData, groupsData, classroomsData])
+
+  // Select context
+  const handleSelectContext = (item: any) => {
+    let label = ''
+    let id = ''
+
+    switch (searchType) {
+      case 'instructor':
+        label = `${item.first_name} ${item.last_name}`
+        id = item.instructor_id
+        break
+      case 'ficha':
+        label = `${item.group_number} - ${item.program?.name}`
+        id = item.group_id
+        break
+      case 'ambiente':
+        label = `${item.room_number} - ${item.campus?.address}`
+        id = item.classroom_id
+        break
+    }
+
+    setSelectedContext({
+      type: searchType,
+      value: label,
+      label,
+      id
+    })
+    setSearchQuery('')
+    setShowSearchResults(false)
+  }
+
+  // Get schedule grid data
+  const scheduleGrid = useMemo(() => {
+    if (!selectedContext || !dayTimeBlocksData || !classSchedulesData) return []
+
+    const grid: ScheduleCell[][] = []
+    const timeBlocks = timeBlocksData?.items || []
+    const dayTimeBlocks = dayTimeBlocksData?.items || []
+    const classSchedules = classSchedulesData?.items || []
+
+    // Filter class schedules based on selected context
+    const filteredSchedules = classSchedules.filter((schedule: any) => {
+      switch (selectedContext.type) {
+        case 'instructor':
+          return schedule.instructor_id === selectedContext.id
+        case 'ficha':
+          return schedule.group_id === selectedContext.id
+        case 'ambiente':
+          return schedule.classroom_id === selectedContext.id
+        default:
+          return false
+      }
+    })
+
+    // Build grid
+    timeBlocks.forEach((timeBlock: any, rowIndex: number) => {
+      grid[rowIndex] = []
+      daysOfWeek.forEach((day, colIndex) => {
+        const dayTimeBlock = dayTimeBlocks.find(
+          (dtb: any) => dtb.day_id === day.id && dtb.time_block_id === timeBlock.time_block_id
+        )
+
+        if (dayTimeBlock) {
+          const classSchedule = filteredSchedules.find(
+            (cs: any) => cs.day_time_block_id === dayTimeBlock.day_time_block_id
+          )
+
+          let status: CellStatus = 'empty'
+          if (classSchedule) {
+            // Check if complete or partial
+            if (classSchedule.instructor_id && classSchedule.classroom_id) {
+              status = 'complete'
+            } else if (classSchedule.instructor_id || classSchedule.classroom_id) {
+              status = 'partial'
+            }
+          }
+
+          grid[rowIndex][colIndex] = {
+            dayTimeBlockId: dayTimeBlock.day_time_block_id,
+            status,
+            classSchedule
+          }
+        } else {
+          grid[rowIndex][colIndex] = {
+            dayTimeBlockId: '',
+            status: 'empty'
+          }
+        }
+      })
+    })
+
+    return grid
+  }, [selectedContext, dayTimeBlocksData, classSchedulesData, timeBlocksData, daysOfWeek])
+
+  // Handle cell click - memoized
+  const handleCellClick = useCallback((blockIndex: number, dayIndex: number) => {
+    console.log('🖱️ Cell clicked:', { blockIndex, dayIndex, selectedContext, showProgrammingModal })
+    if (!selectedContext) {
+      console.log('❌ No selected context')
+      return
+    }
+
+    // Get the current cell data to check if there's an existing class
+    const cellData = scheduleGrid[blockIndex]?.[dayIndex]
+    const existingClass = cellData?.classSchedule
+
+    setSelectedCell({ blockIndex, dayIndex })
+    setShowProgrammingModal(true)
+    
+    if (existingClass) {
+      // Edit mode: Pre-fill form with existing class data
+      console.log('✏️ Edit mode: Found existing class:', existingClass)
+      setIsEditMode(true)
+      setEditingClassId(existingClass.class_schedule_id)
+      
+      const editFormData = {
+        subject: existingClass.subject || '',
+        instructor_id: existingClass.instructor_id?.toString() || '',
+        group_id: existingClass.group_id?.toString() || '',
+        classroom_id: existingClass.classroom_id?.toString() || ''
+      }
+      setFormData(editFormData)
+    } else {
+      // Create mode: Reset form and pre-fill with selected context
+      console.log('➕ Create mode: No existing class found')
+      setIsEditMode(false)
+      setEditingClassId(null)
+      
+      const initialFormData = {
+        subject: '',
+        instructor_id: selectedContext.type === 'instructor' ? selectedContext.id : '',
+        group_id: selectedContext.type === 'ficha' ? selectedContext.id : '',
+        classroom_id: selectedContext.type === 'ambiente' ? selectedContext.id : ''
+      }
+      setFormData(initialFormData)
+    }
+    
+    console.log('✅ Modal should open now')
+  }, [selectedContext, showProgrammingModal, scheduleGrid])
+
+  // Handle form submission (create or update)
+  const handleSubmitClass = useCallback(async () => {
+    if (!selectedCell) return
+    
+    setIsSubmitting(true)
+    try {
+      // Validate required fields
+      if (!formData.subject.trim()) {
+        toast.error('La materia es requerida')
+        return
+      }
+      
+      if (!formData.group_id) {
+        toast.error('La ficha es requerida')
+        return
+      }
+      
+      // Business rule: Must have instructor OR classroom (not both empty)
+      if (!formData.instructor_id && !formData.classroom_id) {
+        toast.error('Debe asignar al menos un instructor O un ambiente')
+        return
+      }
+      
+      if (isEditMode && editingClassId) {
+        // UPDATE MODE - Edit existing class
+        console.log('✏️ Updating existing class:', editingClassId)
+        
+        const updateData = {
+          subject: formData.subject.trim(),
+          group_id: formData.group_id,
+          instructor_id: formData.instructor_id || null,
+          classroom_id: formData.classroom_id || null
+        }
+        
+        await updateClassSchedule.mutateAsync({
+          id: editingClassId,
+          data: updateData
+        })
+        
+        console.log('✅ Class updated successfully')
+        
+      } else {
+        // CREATE MODE - Create new class
+        console.log('➕ Creating new class')
+        
+        if (!selectedContext) {
+          toast.error('Debe seleccionar un contexto (instructor, ficha o ambiente)')
+          return
+        }
+        
+        // Find the current quarter
+        const quarters = quartersData?.items || []
+        const currentQuarter = quarters.find((q: any) => {
+          const now = new Date()
+          const start = new Date(q.start_date)
+          const end = new Date(q.end_date)
+          return now >= start && now <= end
+        })
+        
+        if (!currentQuarter) {
+          console.error('❌ No current quarter found. Available quarters:', quarters)
+          console.log('⚠️ Using quarter_id = 1 as fallback')
+        }
+        
+        // Calculate day_time_block_id
+        const dayId = selectedCell.dayIndex + 1 // Days: 1=Monday, 2=Tuesday, etc.
+        const timeBlockId = selectedCell.blockIndex + 1 // Time blocks: 1-8
+        
+        // Find the specific day_time_block_id from the backend data
+        const dayTimeBlock = dayTimeBlocksData?.items?.find(
+          (dtb: any) => dtb.day_id === dayId && dtb.time_block_id === timeBlockId
+        )
+        
+        if (!dayTimeBlock) {
+          console.error('❌ Day time block not found for:', { dayId, timeBlockId })
+          toast.error('Error: No se pudo encontrar el bloque de tiempo para este horario')
+          return
+        }
+        
+        const classData = {
+          subject: formData.subject.trim(),
+          group_id: parseInt(formData.group_id),
+          instructor_id: formData.instructor_id ? parseInt(formData.instructor_id) : null,
+          classroom_id: formData.classroom_id ? parseInt(formData.classroom_id) : null,
+          quarter_id: currentQuarter?.quarter_id || 1,
+          day_time_block_id: dayTimeBlock.day_time_block_id
+        }
+
+        // Use fetch for creation to maintain existing create logic
+        const response = await fetch('http://localhost:8001/api/v1/scheduling/class-schedules', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(classData)
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error('❌ Failed to create class:', errorData)
+          throw new Error(errorData.error?.message || 'Error al crear la clase')
+        }
+        
+        console.log('✅ Class created successfully')
+        toast.success('Clase programada exitosamente')
+      }
+      
+      // Close modal and reset form
+      setShowProgrammingModal(false)
+      setSelectedCell(null)
+      setIsEditMode(false)
+      setEditingClassId(null)
+      setFormData({ subject: '', instructor_id: '', group_id: '', classroom_id: '' })
+      
+      // Refresh schedule data
+      console.log('🔄 Refreshing data...')
+      setIsRefreshing(true)
+      
+      try {
+        await Promise.all([
+          refetchClassSchedules(),
+          refetchDayTimeBlocks(),
+          refetchTimeBlocks()
+        ])
+        console.log('✅ Data refreshed successfully')
+      } catch (error) {
+        console.error('❌ Error refreshing data:', error)
+      } finally {
+        setIsRefreshing(false)
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error in handleSubmitClass:', error)
+      toast.error(error.message || 'Error al procesar la solicitud')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [selectedCell, selectedContext, formData, isEditMode, editingClassId, token, quartersData, dayTimeBlocksData, updateClassSchedule, refetchClassSchedules, refetchDayTimeBlocks, refetchTimeBlocks])
+
+  // Handle class deletion
+  const handleDeleteClass = useCallback(async () => {
+    if (!isEditMode || !editingClassId) return
+    
+    // Confirm deletion
+    if (!window.confirm('¿Está seguro de que desea eliminar esta clase?')) {
+      return
+    }
+    
+    setIsSubmitting(true)
+    try {
+      await deleteClassSchedule.mutateAsync(editingClassId)
+      
+      console.log('✅ Class deleted successfully')
+      
+      // Close modal and reset form
+      setShowProgrammingModal(false)
+      setSelectedCell(null)
+      setIsEditMode(false)
+      setEditingClassId(null)
+      setFormData({ subject: '', instructor_id: '', group_id: '', classroom_id: '' })
+      
+      // Refresh schedule data
+      console.log('🔄 Refreshing data after deletion...')
+      setIsRefreshing(true)
+      
+      try {
+        await Promise.all([
+          refetchClassSchedules(),
+          refetchDayTimeBlocks(),
+          refetchTimeBlocks()
+        ])
+        console.log('✅ Data refreshed successfully')
+      } catch (error) {
+        console.error('❌ Error refreshing data:', error)
+      } finally {
+        setIsRefreshing(false)
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error deleting class:', error)
+      toast.error(error.message || 'Error al eliminar la clase')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [isEditMode, editingClassId, deleteClassSchedule, refetchClassSchedules, refetchDayTimeBlocks, refetchTimeBlocks])
+
+  // Get cell color based on status - memoized
+  const getCellColor = useCallback((status: CellStatus) => {
+    switch (status) {
+      case 'complete':
+        return 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/30'
+      case 'partial':
+        return 'bg-orange-100 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/30'
+      default:
+        return 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+    }
   }, [])
 
-  if (isLoading) {
+  // Early loading state with minimal UI
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     )
   }
+  
+  // Show search interface immediately, load data progressively
+  const showLoadingInline = isLoading && searchQuery.length > 0
+
+  // Generate schedule data based on real database data
+  const scheduleData = useMemo(() => {
+    const data: Array<Array<{ 
+      hasClass: boolean; 
+      isPartial: boolean; 
+      classData?: any;
+      dayTimeBlockId?: number;
+    }>> = []
+    
+    // Initialize empty grid (8 time blocks x 7 days)
+    for (let blockIndex = 0; blockIndex < 8; blockIndex++) {
+      const row: Array<{ 
+        hasClass: boolean; 
+        isPartial: boolean; 
+        classData?: any;
+        dayTimeBlockId?: number;
+      }> = []
+      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        row.push({ hasClass: false, isPartial: false })
+      }
+      data.push(row)
+    }
+    
+    // If we have schedule data, populate it
+    if (classSchedulesData?.items && dayTimeBlocksData?.items) {
+      classSchedulesData.items.forEach((classSchedule: any) => {
+        // Find the corresponding day_time_block
+        const dayTimeBlock = dayTimeBlocksData.items.find(
+          (dtb: any) => dtb.day_time_block_id === classSchedule.day_time_block_id
+        )
+        
+        if (dayTimeBlock) {
+          const dayIndex = dayTimeBlock.day_id - 1 // Convert to 0-based index
+          const blockIndex = dayTimeBlock.time_block_id - 1 // Convert to 0-based index
+          
+          // Check if this class is relevant to the selected context
+          const isRelevantToContext = !selectedContext || (
+            (selectedContext.type === 'instructor' && classSchedule.instructor_id === parseInt(selectedContext.id)) ||
+            (selectedContext.type === 'ficha' && classSchedule.group_id === parseInt(selectedContext.id)) ||
+            (selectedContext.type === 'ambiente' && classSchedule.classroom_id === parseInt(selectedContext.id))
+          )
+          
+          if (isRelevantToContext && dayIndex >= 0 && dayIndex < 7 && blockIndex >= 0 && blockIndex < 8) {
+            // Check if class is complete or partial
+            const hasInstructor = !!classSchedule.instructor_id
+            const hasClassroom = !!classSchedule.classroom_id
+            const hasGroup = !!classSchedule.group_id
+            
+            const isComplete = hasInstructor && hasClassroom && hasGroup
+            const isPartial = (hasInstructor || hasClassroom) && !(hasInstructor && hasClassroom)
+            
+            data[blockIndex][dayIndex] = {
+              hasClass: true,
+              isPartial: isPartial,
+              classData: classSchedule,
+              dayTimeBlockId: dayTimeBlock.day_time_block_id
+            }
+          }
+        }
+      })
+    }
+    
+    console.log('🔄 Schedule data updated:', {
+      classSchedulesCount: classSchedulesData?.items?.length || 0,
+      dayTimeBlocksCount: dayTimeBlocksData?.items?.length || 0,
+      selectedContext: selectedContext?.type,
+      dataStructure: data.map((row, blockIndex) => 
+        row.map((cell, dayIndex) => ({
+          hasClass: cell.hasClass,
+          subject: cell.classData?.subject || null
+        }))
+      )
+    })
+    
+    return data
+  }, [classSchedulesData, dayTimeBlocksData, selectedContext])
+
+  // ScheduleCell component - memoized to prevent unnecessary re-renders
+  const ScheduleCell = memo<{
+    timeBlock: { id: number; start: string; end: string }
+    dayIndex: number
+    hasClass: boolean
+    isPartial: boolean
+    selectedContext: any
+    onClick: () => void
+  }>(({ timeBlock, dayIndex, hasClass, isPartial, selectedContext, onClick }) => {
+    const getCellStyle = () => {
+      if (!hasClass) {
+        return 'bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'
+      }
+      if (isPartial) {
+        return 'bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-600 hover:bg-orange-200 dark:hover:bg-orange-900/50 cursor-pointer'
+      }
+      return 'bg-green-100 dark:bg-green-900/30 border-2 border-green-300 dark:border-green-600 hover:bg-green-200 dark:hover:bg-green-900/50 cursor-pointer'
+    }
+
+    const getClassInfo = () => {
+      if (!hasClass) return null
+      
+      // Get real class data from scheduleData
+      const cellData = scheduleData[timeBlock.id - 1]?.[dayIndex]
+      const realClassData = cellData?.classData
+      
+      if (!realClassData) return null
+      
+      // Get instructor, group, and classroom data
+      const instructor = instructorsData?.items?.find((i: any) => i.instructor_id === realClassData.instructor_id)
+      const group = groupsData?.items?.find((g: any) => g.group_id === realClassData.group_id)
+      const classroom = classroomsData?.items?.find((c: any) => c.classroom_id === realClassData.classroom_id)
+      
+      // Based on selected context, hide what's already selected
+      return (
+        <div className="space-y-1">
+          <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+            🎯 {realClassData.subject}
+          </div>
+          
+          {selectedContext?.type !== 'ficha' && group && (
+            <div className="text-xs text-gray-700 dark:text-gray-300 truncate">
+              👥 {group.group_number}
+            </div>
+          )}
+          
+          {selectedContext?.type !== 'instructor' && instructor && (
+            <div className="text-xs text-gray-700 dark:text-gray-300 truncate">
+              👨‍🏫 {instructor.first_name} {instructor.last_name}
+            </div>
+          )}
+          
+          {selectedContext?.type !== 'ambiente' && classroom && (
+            <div className="text-xs text-gray-700 dark:text-gray-300 truncate">
+              🏢 {classroom.room_number}
+            </div>
+          )}
+          
+          {/* Show missing info for partial classes */}
+          {isPartial && (
+            <div className="text-xs text-orange-600 dark:text-orange-400">
+              {!instructor && !classroom ? '⚠️ Sin asignar' : 
+               !instructor ? '⚠️ Sin instructor' : '⚠️ Sin ambiente'}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div
+        className={cn(
+          "min-h-[80px] p-2 rounded-md transition-all duration-200 transform hover:scale-105",
+          getCellStyle()
+        )}
+        onClick={onClick}
+      >
+        {hasClass && (
+          <div className="h-full flex flex-col justify-center">
+            {getClassInfo()}
+          </div>
+        )}
+        {!hasClass && (
+          <div className="h-full flex items-center justify-center">
+            <Plus className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </div>
+        )}
+      </div>
+    )
+  })
+
+  ScheduleCell.displayName = 'ScheduleCell'
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen flex flex-col -m-4 md:-m-6">
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+        className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 py-1 px-4"
       >
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
-            <Calendar className="w-8 h-8 text-primary-600" />
-            Programación de Horarios
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Gestión interactiva de la programación académica - SENA CGMLTI
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {hasUnsavedChanges && (
-            <Badge variant="warning" className="flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Cambios sin guardar
-            </Badge>
-          )}
-          {conflicts > 0 && (
-            <Badge variant="error" className="flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              {conflicts} conflictos
-            </Badge>
-          )}
-          <Badge variant="success" className="flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" />
-            Sistema activo
-          </Badge>
-        </div>
-      </motion.div>
-
-      {/* Filters Panel */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="w-5 h-5" />
-                Filtros Avanzados
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-              >
-                <ChevronDown 
-                  className={`w-4 h-4 transition-transform ${isFiltersOpen ? 'rotate-180' : ''}`} 
+        <div className="flex items-center gap-4">
+          {/* Search bar */}
+          <div 
+            className="relative flex-1 max-w-md"
+            onMouseEnter={() => setShowSearchResults(true)}
+            onMouseLeave={() => setShowSearchResults(false)}
+          >
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              onFocus={() => setShowSearchResults(true)}
+              onBlur={() => setTimeout(() => setShowSearchResults(false), 150)}
+              placeholder={
+                searchType === 'instructor' ? 'Buscar instructor (ej: juan, maria@sena.edu.co, 12345678)...' :
+                searchType === 'ficha' ? 'Buscar ficha (ej: 2798456, sistemas, adso)...' :
+                'Buscar ambiente (ej: 301, laboratorio, edificio a)...'
+              }
+              className="pl-10 pr-4"
+            />
+            {showLoadingInline && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <LoadingSpinner size="sm" />
+              </div>
+            )}
+            
+            {/* Search results dropdown */}
+            <AnimatePresence>
+              {showSearchResults && (
+                <SearchResults
+                  results={searchResults}
+                  searchType={searchType}
+                  onSelectContext={handleSelectContext}
                 />
-              </Button>
-            </div>
-          </CardHeader>
-          
-          {isFiltersOpen && (
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Trimestre
-                  </label>
-                  <Select
-                    value={filters.trimester}
-                    onValueChange={(value) => updateFilter('trimester', value)}
-                  >
-                    {trimesters.map((trimester) => (
-                      <option key={trimester.value} value={trimester.value}>
-                        {trimester.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+              )}
+            </AnimatePresence>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Jornada
-                  </label>
-                  <Select
-                    value={filters.shift}
-                    onValueChange={(value) => updateFilter('shift', value)}
-                  >
-                    {shifts.map((shift) => (
-                      <option key={shift.value} value={shift.value}>
-                        {shift.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+          {/* Filter button */}
+          <div 
+            className="relative"
+            onMouseEnter={() => setShowFilters(true)}
+            onMouseLeave={() => setShowFilters(false)}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-center w-10 h-10"
+            >
+              <Filter className="w-4 h-4" />
+            </Button>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Día
-                  </label>
-                  <Select
-                    value={filters.day}
-                    onValueChange={(value) => updateFilter('day', value)}
-                  >
-                    {days.map((day) => (
-                      <option key={day.value} value={day.value}>
-                        {day.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Instructor
-                  </label>
-                  <Select
-                    value={filters.instructor}
-                    onValueChange={(value) => updateFilter('instructor', value)}
-                  >
-                    <option value="all">Todos los instructores</option>
-                    {instructorsData?.items?.map((instructor) => (
-                      <option key={instructor.id} value={instructor.id}>
-                        {instructor.first_name} {instructor.last_name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Programa
-                  </label>
-                  <Select
-                    value={filters.program}
-                    onValueChange={(value) => updateFilter('program', value)}
-                  >
-                    <option value="all">Todos los programas</option>
-                    {programsData?.items?.map((program) => (
-                      <option key={program.id} value={program.id}>
-                        {program.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Aula
-                  </label>
-                  <Select
-                    value={filters.classroom}
-                    onValueChange={(value) => updateFilter('classroom', value)}
-                  >
-                    <option value="all">Todas las aulas</option>
-                    {classroomsData?.items?.map((classroom) => (
-                      <option key={classroom.id} value={classroom.id}>
-                        {classroom.name} - {classroom.building?.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearAllFilters}
-                  className="flex items-center gap-2"
+            {/* Filter dropdown */}
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-[60]"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Limpiar Filtros
-                </Button>
-                
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span>Filtros activos:</span>
-                  <Badge variant="secondary">
-                    {Object.values(filters).filter(val => val !== 'all').length}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      </motion.div>
+                  <div className="space-y-2 min-w-[200px]">
+                    <button
+                      onClick={() => {
+                        setSearchType('instructor')
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left rounded-md transition-colors",
+                        searchType === 'instructor'
+                          ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      )}
+                    >
+                      Instructor
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSearchType('ficha')
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left rounded-md transition-colors",
+                        searchType === 'ficha'
+                          ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      )}
+                    >
+                      Ficha
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSearchType('ambiente')
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left rounded-md transition-colors",
+                        searchType === 'ambiente'
+                          ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      )}
+                    >
+                      Ambiente
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-      {/* Week Navigation */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateWeek('prev')}
-                >
-                  &#8592; Semana Anterior
-                </Button>
-                
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {formatWeekDate(currentWeek)}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Semana {Math.ceil((currentWeek.getTime() - new Date(currentWeek.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))}
-                  </p>
-                </div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateWeek('next')}
-                >
-                  Semana Siguiente &#8594;
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={goToCurrentWeek}
-                  className="flex items-center gap-2"
-                >
-                  <Clock className="w-4 h-4" />
-                  Hoy
-                </Button>
-                
-                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                  <Button
-                    variant={viewMode === 'week' ? 'primary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('week')}
-                  >
-                    Semana
-                  </Button>
-                  <Button
-                    variant={viewMode === 'day' ? 'primary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('day')}
-                  >
-                    Día
-                  </Button>
-                </div>
-              </div>
+          {/* Dynamic label */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {selectedContext ? selectedContext.label : 'Instructor / Ficha / Ambiente'}
+              </h2>
+              {isRefreshing && (
+                <LoadingSpinner size="sm" />
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+          </div>
 
-      {/* Quick Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="grid grid-cols-1 md:grid-cols-4 gap-4"
-      >
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <Users className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Instructores</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {instructorsData?.total || 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                <BookOpen className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Programas</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {programsData?.total || 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                <MapPin className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Aulas</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {classroomsData?.total || 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
-                <Calendar className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Horarios</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {schedulesData?.total || 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Action Buttons */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2">
+          {/* View schedule button */}
           <Button
             variant="primary"
-            className="flex items-center gap-2"
-            disabled={!hasUnsavedChanges}
-          >
-            <Save className="w-4 h-4" />
-            Guardar Cambios
-          </Button>
-          
-          <Button
-            variant="outline"
+            size="sm"
+            disabled={!selectedContext}
             className="flex items-center gap-2"
           >
-            <Undo className="w-4 h-4" />
-            Deshacer
-          </Button>
-          
-          <Button
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Redo className="w-4 h-4" />
-            Rehacer
+            <Eye className="w-4 h-4" />
+            Visualizar Horario
           </Button>
         </div>
-
-        <Button
-          variant="ghost"
-          className="flex items-center gap-2"
-        >
-          <Settings className="w-4 h-4" />
-          Configuración
-        </Button>
       </motion.div>
 
-      {/* Schedule Matrix */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <Card>
-          <CardContent className="p-0">
-            <DragDropScheduleMatrix
-              schedules={schedulesData?.items || []}
-              onScheduleUpdate={(schedule) => {
-                setHasUnsavedChanges(true)
-                // Handle schedule update
-              }}
-              onConflictDetected={(conflictCount) => {
-                setConflicts(conflictCount)
-              }}
-              filters={{
-                instructorId: filters.instructor !== 'all' ? filters.instructor : undefined,
-                programId: filters.program !== 'all' ? filters.program : undefined,
-                classroomId: filters.classroom !== 'all' ? filters.classroom : undefined,
-                day: filters.day !== 'all' ? filters.day : undefined,
-                shift: filters.shift !== 'all' ? filters.shift : undefined
-              }}
-              viewMode={viewMode}
-              currentWeek={currentWeek}
-            />
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Instructions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <Card>
-          <CardContent className="p-4">
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Instrucciones de Uso
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400">
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Haz clic en una celda vacía para crear un nuevo horario</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Arrastra los horarios existentes para reprogramarlos</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Los conflictos se detectan automáticamente</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span>Usa los filtros para encontrar horarios específicos</span>
+      {/* Schedule Grid */}
+      {selectedContext ? (
+        <div className="flex-1 bg-white dark:bg-gray-900 mx-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="h-full flex flex-col"
+          >
+            {/* Header fijo tipo Excel */}
+            <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4 pb-2">
+              <div className="grid grid-cols-8 gap-1">
+                {/* Header row */}
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Horas
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Lunes
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Martes
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Miércoles
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Jueves
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Viernes
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Sábado
+                </div>
+                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  Domingo
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            
+            {/* Contenido scrolleable */}
+            <div className="flex-1 overflow-y-auto p-4 pt-2">
+              <div className="grid grid-cols-8 gap-1">
+
+              {/* Time blocks and schedule cells */}
+              {Array.from({ length: 8 }, (_, blockIndex) => {
+                const timeBlock = {
+                  id: blockIndex + 1,
+                  start: `${6 + blockIndex * 2}:00`,
+                  end: `${8 + blockIndex * 2}:00`
+                }
+                
+                return (
+                  <React.Fragment key={blockIndex}>
+                    {/* Time label */}
+                    <div className="p-3 text-center font-medium text-gray-800 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span className="text-xs">{timeBlock.start} - {timeBlock.end}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Schedule cells for each day */}
+                    {scheduleData[blockIndex]?.map((cellData, dayIndex) => {
+                      const cellKey = `${blockIndex}-${dayIndex}`
+                      
+                      return (
+                        <ScheduleCell
+                          key={cellKey}
+                          timeBlock={timeBlock}
+                          dayIndex={dayIndex}
+                          hasClass={cellData.hasClass}
+                          isPartial={cellData.isPartial}
+                          selectedContext={selectedContext}
+                          onClick={() => handleCellClick(blockIndex, dayIndex)}
+                        />
+                      )
+                    }) || []}
+                  </React.Fragment>
+                )
+              })}
+              </div>
+            </div>
+            
+            {/* Legend fijo abajo */}
+            <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex items-center justify-center gap-6">
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border-2 border-green-300 dark:border-green-600"></div>
+                  <span className="text-gray-700 dark:text-gray-300">Completo</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-600"></div>
+                  <span className="text-gray-700 dark:text-gray-300">Parcial</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-4 h-4 rounded bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600"></div>
+                  <span className="text-gray-700 dark:text-gray-300">Disponible</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center text-center"
+          >
+            <Calendar className="w-16 h-16 text-gray-400 dark:text-gray-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Selecciona un contexto para comenzar
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
+              Utiliza la barra de búsqueda para seleccionar un instructor, ficha o ambiente
+              y visualizar su horario de programación.
+            </p>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Programming Modal */}
+      {console.log('🔍 Modal Debug:', { showProgrammingModal, selectedCell, selectedContext })}
+      <Modal
+        open={showProgrammingModal}
+        onClose={() => {
+          console.log('❌ Modal closing')
+          setShowProgrammingModal(false)
+          setSelectedCell(null)
+          setIsEditMode(false)
+          setEditingClassId(null)
+          setOpenDropdownField(null)
+        }}
+        title={isEditMode ? "Editar Clase" : "Programar Clase"}
+        size="lg"
+        className="overflow-visible transition-all duration-300 ease-in-out"
+      >
+        <motion.div 
+          className="space-y-4"
+          animate={{
+            paddingBottom: isExpanded ? `${expandedHeight}px` : '20px'
+          }}
+          transition={{
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
+        >
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {isEditMode 
+              ? "Modifica la información de esta clase existente." 
+              : "Completa la información para programar esta clase."
+            }
+          </p>
+          
+          {/* Context info */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+              Información del bloque
+            </h4>
+            <div className="space-y-1 text-sm text-gray-800 dark:text-gray-200">
+              <p>
+                <span className="font-medium text-gray-900 dark:text-gray-100">Contexto:</span> {selectedContext?.type === 'instructor' ? 'Instructor' : selectedContext?.type === 'ficha' ? 'Ficha' : 'Ambiente'} - {selectedContext?.label}
+              </p>
+              <p>
+                <span className="font-medium text-gray-900 dark:text-gray-100">Bloque:</span> {selectedCell ? `${6 + selectedCell.blockIndex * 2}:00 - ${8 + selectedCell.blockIndex * 2}:00` : ''}
+              </p>
+              <p>
+                <span className="font-medium text-gray-900 dark:text-gray-100">Día:</span> {selectedCell ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][selectedCell.dayIndex] : ''}
+              </p>
+            </div>
+          </div>
+
+          {/* Form fields based on context */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Temática <span className="text-red-500">*</span>
+              </label>
+              <Input
+                placeholder="Ingrese la temática de la clase"
+                value={formData.subject}
+                onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                required
+              />
+            </div>
+            
+            {/* Instructor field */}
+            {selectedContext?.type === 'instructor' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Instructor (Ya seleccionado)
+                </label>
+                <Input
+                  value={selectedContext.label}
+                  disabled
+                  className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Instructor {selectedContext?.type === 'ficha' ? '*' : '(Opcional)'}
+                </label>
+                <select
+                  value={formData.instructor_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, instructor_id: e.target.value }))}
+                  disabled={instructorsLoading}
+                  className="w-full min-h-[40px] px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required={selectedContext?.type === 'ficha'}
+                >
+                  <option value="">
+                    {selectedContext?.type === 'ficha' ? 'Seleccione un instructor' : 'Seleccione un instructor (opcional)'}
+                  </option>
+                  {instructorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} {option.subtext ? `(${option.subtext})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedContext?.type === 'ficha' && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Debe seleccionar al menos instructor O ambiente (no ambos vacíos)
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* Ficha field */}
+            {selectedContext?.type === 'ficha' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Ficha (Ya seleccionada)
+                </label>
+                <Input
+                  value={selectedContext.label}
+                  disabled
+                  className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Ficha *
+                </label>
+                <select
+                  value={formData.group_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, group_id: e.target.value }))}
+                  disabled={groupsLoading}
+                  className="w-full min-h-[40px] px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Seleccione una ficha</option>
+                  {groupOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} {option.subtext ? `(${option.subtext})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Ambiente field */}
+            {selectedContext?.type === 'ambiente' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Ambiente (Ya seleccionado)
+                </label>
+                <Input
+                  value={selectedContext.label}
+                  disabled
+                  className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Ambiente {selectedContext?.type === 'ficha' ? '*' : '(Opcional)'}
+                </label>
+                <select
+                  value={formData.classroom_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, classroom_id: e.target.value }))}
+                  disabled={classroomsLoading}
+                  className="w-full min-h-[40px] px-3 py-2 border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required={selectedContext?.type === 'ficha'}
+                >
+                  <option value="">
+                    {selectedContext?.type === 'ficha' ? 'Seleccione un ambiente' : 'Seleccione un ambiente (opcional)'}
+                  </option>
+                  {classroomOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} {option.subtext ? `(${option.subtext})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedContext?.type === 'ficha' && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Debe seleccionar al menos instructor O ambiente (no ambos vacíos)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between pt-4">
+            <div className="flex gap-3">
+              {isEditMode && (
+                <Button
+                  variant="outline"
+                  onClick={handleDeleteClass}
+                  disabled={isSubmitting}
+                  className="text-red-600 hover:text-red-700 hover:border-red-300 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowProgrammingModal(false)
+                  setSelectedCell(null)
+                  setIsEditMode(false)
+                  setEditingClassId(null)
+                  setOpenDropdownField(null)
+                  setFormData({ subject: '', instructor_id: '', group_id: '', classroom_id: '' })
+                }}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              
+              <Button 
+                variant="primary"
+                onClick={() => {
+                  console.log('🖱️ Button clicked!', { formData, selectedCell, selectedContext, isEditMode })
+                  handleSubmitClass()
+                }}
+                disabled={
+                  isSubmitting || 
+                  !formData.subject.trim() || 
+                  !formData.group_id ||
+                  (!isEditMode && selectedContext?.type === 'ficha' && !formData.instructor_id && !formData.classroom_id)
+                }
+              >
+                {isSubmitting 
+                  ? 'Guardando...' 
+                  : isEditMode 
+                    ? 'Actualizar Clase' 
+                    : 'Programar Clase'
+                }
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      </Modal>
     </div>
   )
 }
+
+export default memo(ProgrammingPage)

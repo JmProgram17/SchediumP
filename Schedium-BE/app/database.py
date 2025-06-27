@@ -25,10 +25,26 @@ engine_config = {
     "pool_recycle": 3600,  # Recycle connections after 1 hour
     "echo": settings.DEBUG,  # Log SQL statements in debug mode
     "future": True,  # Use SQLAlchemy 2.0 style
+    # Force UTF-8 encoding for all connections
+    "connect_args": {
+        "charset": "utf8mb4",
+        "use_unicode": True,
+        "init_command": "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+    }
 }
 
 # Create database engine
 engine = create_engine(settings.DATABASE_URL, poolclass=QueuePool, **engine_config)
+
+# Ensure UTF-8 encoding on every connection
+@event.listens_for(engine, "connect")
+def set_utf8_on_connect(dbapi_connection, connection_record):
+    """Ensure UTF-8 encoding is set correctly on each new connection."""
+    with dbapi_connection.cursor() as cursor:
+        cursor.execute("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci")
+        cursor.execute("SET character_set_client = utf8mb4")
+        cursor.execute("SET character_set_connection = utf8mb4")
+        cursor.execute("SET character_set_results = utf8mb4")
 
 # Configure session factory
 SessionLocal = sessionmaker(

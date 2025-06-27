@@ -15,27 +15,44 @@ import {
 } from '../types'
 
 export class InstructorService extends BaseApiService {
-  protected baseUrl = '/api/v1'
+  protected baseUrl = ''
   private readonly endpoint = '/hr/instructors'
 
   /**
    * Get paginated list of instructors
    */
   async getInstructors(query: InstructorListQuery = {}): Promise<InstructorListResponse> {
+    console.log('🔍 [INSTRUCTOR SERVICE] Iniciando getInstructors con query:', query)
+    
     const params = new URLSearchParams()
     
     if (query.page) params.append('page', query.page.toString())
     if (query.limit) params.append('limit', query.limit.toString())
     if (query.search) params.append('search', query.search)
-    if (query.status) params.append('status', query.status)
+    if (query.active !== undefined) params.append('active', query.active.toString())
+    if (query.department_id) params.append('department_id', query.department_id.toString())
+    if (query.contract_id) params.append('contract_id', query.contract_id.toString())
     if (query.sortBy) params.append('sort_by', query.sortBy)
     if (query.sortOrder) params.append('sort_order', query.sortOrder)
 
     const queryString = params.toString()
     const url = queryString ? `${this.endpoint}?${queryString}` : this.endpoint
-
-    const response = await this.get<InstructorListResponse>(url)
-    return response.data!
+    
+    console.log('📡 [INSTRUCTOR SERVICE] URL final:', url)
+    console.log('🔗 [INSTRUCTOR SERVICE] Endpoint base:', this.endpoint)
+    
+    try {
+      const response = await this.get<InstructorListResponse>(url)
+      console.log('✅ [INSTRUCTOR SERVICE] Respuesta exitosa:', {
+        status: response.success,
+        dataCount: response.data?.items?.length || 0,
+        total: response.data?.total || 0
+      })
+      return response.data!
+    } catch (error) {
+      console.error('❌ [INSTRUCTOR SERVICE] Error en getInstructors:', error)
+      throw error
+    }
   }
 
   /**
@@ -50,9 +67,27 @@ export class InstructorService extends BaseApiService {
    * Create new instructor
    */
   async createInstructor(data: CreateInstructorDTO): Promise<Instructor> {
+    console.log('🔄 [INSTRUCTOR SERVICE] Creating instructor with data:', data)
     const sanitizedData = this.sanitizeInstructorData(data)
+    console.log('🧹 [INSTRUCTOR SERVICE] Sanitized data:', sanitizedData)
+    
     const response = await this.post<InstructorResponse>(this.endpoint, sanitizedData)
-    return response.data!.data
+    console.log('📡 [INSTRUCTOR SERVICE] Create response:', response)
+    
+    // Handle different response structures
+    if (response.data && response.data.data) {
+      // Nested structure: { data: { data: instructor } }
+      console.log('✅ [INSTRUCTOR SERVICE] Using nested data structure')
+      return response.data.data
+    } else if (response.data) {
+      // Direct structure: { data: instructor }
+      console.log('✅ [INSTRUCTOR SERVICE] Using direct data structure')
+      return response.data as Instructor
+    } else {
+      // Fallback - response might be the instructor directly
+      console.log('⚠️ [INSTRUCTOR SERVICE] Using response as instructor directly')
+      return response as any as Instructor
+    }
   }
 
   /**
@@ -136,26 +171,17 @@ export class InstructorService extends BaseApiService {
   private sanitizeInstructorData(data: CreateInstructorDTO | UpdateInstructorDTO): CreateInstructorDTO | UpdateInstructorDTO {
     const sanitized = { ...data }
 
-    if (sanitized.firstName) {
-      sanitized.firstName = sanitized.firstName.trim().replace(/[<>]/g, '')
+    if (sanitized.first_name) {
+      sanitized.first_name = sanitized.first_name.trim().replace(/[<>]/g, '')
     }
-    if (sanitized.lastName) {
-      sanitized.lastName = sanitized.lastName.trim().replace(/[<>]/g, '')
+    if (sanitized.last_name) {
+      sanitized.last_name = sanitized.last_name.trim().replace(/[<>]/g, '')
     }
     if (sanitized.email) {
       sanitized.email = sanitized.email.trim().toLowerCase()
     }
-    if (sanitized.documentNumber) {
-      sanitized.documentNumber = sanitized.documentNumber.replace(/\D/g, '')
-    }
-    if (sanitized.phone) {
-      sanitized.phone = sanitized.phone.replace(/\D/g, '')
-    }
-    if (sanitized.specialization) {
-      sanitized.specialization = sanitized.specialization.trim().replace(/[<>]/g, '')
-    }
-    if (sanitized.department) {
-      sanitized.department = sanitized.department.trim().replace(/[<>]/g, '')
+    if (sanitized.phone_number) {
+      sanitized.phone_number = sanitized.phone_number.replace(/\D/g, '')
     }
 
     return sanitized

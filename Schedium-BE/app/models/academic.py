@@ -3,7 +3,7 @@ Academic domain models.
 Maps program, level, chain, nomenclature, and student group tables.
 """
 
-from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.models import Base, TimeStampMixin
@@ -61,8 +61,6 @@ class Nomenclature(Base, TimeStampMixin):
         index=True,
         comment="Abbreviation or short code",
     )
-    description = Column(String(255), comment="Optional description")
-    active = Column(Boolean, default=True, nullable=False)
 
     # Relationships
     programs = relationship("Program", back_populates="nomenclature")
@@ -75,7 +73,13 @@ class Program(Base, TimeStampMixin):
     """Academic program model."""
 
     __tablename__ = "program"
-    __table_args__ = {"comment": "Academic programs offered by the institution"}
+    __table_args__ = (
+        UniqueConstraint(
+            'name', 'nomenclature_id', 'level_id', 'chain_id',
+            name='uq_program_name_nomenclature_level_chain'
+        ),
+        {"comment": "Academic programs offered by the institution"}
+    )
     __allow_unmapped__ = True
 
     program_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -88,6 +92,7 @@ class Program(Base, TimeStampMixin):
         Integer, ForeignKey("department.department_id", ondelete="SET NULL"), index=True
     )
     level_id = Column(Integer, ForeignKey("level.level_id", ondelete="SET NULL"), index=True)
+    active = Column(Boolean, default=True, nullable=False)
 
     # Relationships
     nomenclature = relationship("Nomenclature", back_populates="programs")
@@ -112,7 +117,6 @@ class StudentGroup(Base, TimeStampMixin):
     program_id = Column(Integer, ForeignKey("program.program_id", ondelete="RESTRICT"), index=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-    capacity = Column(Integer, nullable=False)
     schedule_id = Column(
         Integer, ForeignKey("schedule.schedule_id", ondelete="RESTRICT"), index=True
     )

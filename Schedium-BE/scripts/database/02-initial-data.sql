@@ -44,21 +44,20 @@ INSERT INTO level (study_type, duration) VALUES
 
 -- Insert sample chains
 INSERT INTO chain (name) VALUES
-    ('Cadena de Tecnología'),
-    ('Cadena de Negocios'),
-    ('Cadena de Idiomas');
+    ('Cadena Abierta'),
+    ('Cadena Cerrada');
 
 -- Insert sample nomenclatures
-INSERT INTO nomenclature (code, description, active) VALUES
-    ('ADSI', 'Análisis y Desarrollo de Sistemas de Información', TRUE),
-    ('CONT', 'Contabilidad y Finanzas', TRUE),
-    ('ING', 'Inglés', TRUE);
+INSERT INTO nomenclature (code) VALUES
+    ('ADSI'),
+    ('CONT'),
+    ('ING');
 
 -- Insert sample programs
-INSERT INTO program (name, nomenclature_id, chain_id, department_id, level_id) VALUES
-    ('Análisis y Desarrollo de Sistemas de Información', 1, 1, 1, 2),
-    ('Contabilidad y Finanzas', 2, 2, 2, 1),
-    ('Inglés Técnico', 3, 3, 3, 1);
+INSERT INTO program (name, nomenclature_id, chain_id, department_id, level_id, active) VALUES
+    ('Análisis y Desarrollo de Sistemas de Información', 1, 1, 1, 2, TRUE),  -- Cadena Abierta
+    ('Contabilidad y Finanzas', 2, 2, 2, 1, TRUE),                          -- Cadena Cerrada
+    ('Inglés Técnico', 3, 1, 3, 1, TRUE);                                   -- Cadena Abierta
 
 -- Insert sample schedules
 INSERT INTO schedule (name, start_time, end_time) VALUES

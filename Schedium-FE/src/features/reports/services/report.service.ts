@@ -124,7 +124,7 @@ export interface ReportStats {
 }
 
 export class ReportService extends BaseApiService {
-  protected baseUrl = '/api/v1'
+  protected baseUrl = ''
   private readonly endpoint = '/reports'
 
   // Template Management

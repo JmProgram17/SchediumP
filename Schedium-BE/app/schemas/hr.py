@@ -9,6 +9,7 @@ from typing import Optional
 from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.schemas.common import BaseSchema, TimestampSchema
+from app.schemas.auth import UserWithoutPassword
 from app.utils.validators import validate_phone
 
 
@@ -19,6 +20,7 @@ class DepartmentBase(BaseSchema):
     name: str = Field(..., min_length=2, max_length=100, description="Department name")
     phone_number: Optional[str] = Field(None, max_length=20, description="Phone number")
     email: Optional[EmailStr] = Field(None, description="Email address")
+    coordinator_id: Optional[int] = Field(None, description="Coordinator user ID")
 
     @field_validator("phone_number")
     def validate_phone(cls, v: Optional[str]) -> Optional[str]:
@@ -40,12 +42,19 @@ class DepartmentUpdate(BaseSchema):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     phone_number: Optional[str] = Field(None, max_length=20)
     email: Optional[EmailStr] = None
+    coordinator_id: Optional[int] = Field(None, description="Coordinator user ID")
 
 
 class Department(DepartmentBase, TimestampSchema):
     """Department schema for API responses."""
 
     department_id: int = Field(..., description="Department ID")
+    
+    # Nested coordinator information
+    coordinator: Optional[UserWithoutPassword] = Field(None, description="Coordinator user information")
+    
+    class Config:
+        from_attributes = True
 
 
 # Contract Schemas
@@ -87,8 +96,8 @@ class InstructorBase(BaseSchema):
     last_name: str = Field(..., min_length=2, max_length=100, description="Last name")
     phone_number: Optional[str] = Field(None, max_length=20, description="Phone number")
     email: EmailStr = Field(..., description="Email address")
-    contract_id: Optional[int] = Field(None, description="Contract ID")
-    department_id: Optional[int] = Field(None, description="Department ID")
+    contract_id: int = Field(..., description="Contract ID (required)")
+    department_id: int = Field(..., description="Department ID (required)")
     active: bool = Field(True, description="Active status")
 
     @field_validator("phone_number")
@@ -124,13 +133,11 @@ class Instructor(InstructorBase, TimestampSchema):
     hour_count: Decimal = Field(..., description="Total assigned hours")
     contract: Optional[Contract] = None
     department: Optional[Department] = None
-    full_name: str = Field(..., description="Full name")
-
-    @model_validator(mode="after")
-    def add_full_name(self) -> "Instructor":
-        """Add computed full name."""
-        self.full_name = f"{self.first_name} {self.last_name}"
-        return self
+    
+    @property
+    def full_name(self) -> str:
+        """Computed full name property."""
+        return f"{self.first_name} {self.last_name}"
 
 
 class InstructorWorkload(BaseSchema):

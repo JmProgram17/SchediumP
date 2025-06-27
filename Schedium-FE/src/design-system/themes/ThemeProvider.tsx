@@ -44,6 +44,9 @@ export function ThemeProvider({
     setThemeState(newTheme)
     localStorage.setItem(storageKey, newTheme)
     updateDocumentClass(newTheme)
+    
+    // Dispatch custom event to notify all components
+    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newTheme }))
   }
 
   const toggleTheme = (): void => {
@@ -99,10 +102,37 @@ export function ThemeProvider({
     return () => mediaQuery.removeListener(handleChange)
   }, [storageKey])
 
+  // Listen for localStorage changes from other tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === storageKey && e.newValue) {
+        const newTheme = e.newValue as Theme
+        if ((newTheme === 'light' || newTheme === 'dark') && newTheme !== theme) {
+          setThemeState(newTheme)
+          updateDocumentClass(newTheme)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [storageKey, theme])
+
   // Update document class on mount and theme change
   useEffect(() => {
     updateDocumentClass(theme)
   }, [theme])
+
+  // Force sync from localStorage on mount
+  useEffect(() => {
+    const storedTheme = localStorage.getItem(storageKey) as Theme
+    if (storedTheme && (storedTheme === 'light' || storedTheme === 'dark')) {
+      if (storedTheme !== theme) {
+        setThemeState(storedTheme)
+      }
+      updateDocumentClass(storedTheme)
+    }
+  }, [])
 
   const value: ThemeContextValue = {
     theme,
@@ -137,4 +167,33 @@ export function useThemeColors(): ThemeColors {
 export function useIsDark(): boolean {
   const { isDark } = useTheme()
   return isDark
+}
+
+// Hook to force theme sync across components
+export function useThemeSync(): void {
+  const { theme, setTheme } = useTheme()
+  
+  useEffect(() => {
+    const checkAndSync = () => {
+      const storedTheme = localStorage.getItem('schedium-theme') as Theme
+      if (storedTheme && (storedTheme === 'light' || storedTheme === 'dark') && storedTheme !== theme) {
+        setTheme(storedTheme)
+      }
+    }
+    
+    // Immediate sync on mount
+    checkAndSync()
+    
+    // Check on focus (when user returns to tab)
+    window.addEventListener('focus', checkAndSync)
+    
+    // Listen for custom theme change events
+    const handleThemeChange = () => checkAndSync()
+    window.addEventListener('theme-changed', handleThemeChange)
+    
+    return () => {
+      window.removeEventListener('focus', checkAndSync)
+      window.removeEventListener('theme-changed', handleThemeChange)
+    }
+  }, [theme, setTheme])
 }

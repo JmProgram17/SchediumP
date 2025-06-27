@@ -201,7 +201,10 @@ export class EnhancedApiService {
 
       // Transform response data if adapter is specified
       if (response.data && options.adapter) {
+        console.log('🔄 [TRANSFORM] Before transformation:', response.data)
+        console.log('🔄 [TRANSFORM] Using adapter:', options.adapter)
         response.data = this.transformToFrontend(response.data, options.adapter)
+        console.log('🔄 [TRANSFORM] After transformation:', response.data)
       }
 
       // Finish successful operation
@@ -264,20 +267,36 @@ export class EnhancedApiService {
     data?: any,
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
+    let result: any
     switch (method.toUpperCase()) {
       case 'GET':
-        return httpClient.get<T>(url, config)
+        result = await httpClient.get<T>(url, config)
+        break
       case 'POST':
-        return httpClient.post<T>(url, data, config)
+        result = await httpClient.post<T>(url, data, config)
+        break
       case 'PUT':
-        return httpClient.put<T>(url, data, config)
+        result = await httpClient.put<T>(url, data, config)
+        break
       case 'PATCH':
-        return httpClient.patch<T>(url, data, config)
+        result = await httpClient.patch<T>(url, data, config)
+        break
       case 'DELETE':
-        return httpClient.delete<T>(url, config)
+        result = await httpClient.delete<T>(url, config)
+        break
       default:
         throw new Error(`Unsupported HTTP method: ${method}`)
     }
+    
+    // Debug the RAW response from httpClient
+    console.log('🚀 [RAW HTTP] Response from httpClient:', result)
+    console.log('🚀 [RAW HTTP] Response.data:', result?.data)
+    console.log('🚀 [RAW HTTP] Response.data.data:', result?.data?.data)
+    if (result?.data?.data) {
+      console.log('🚀 [RAW HTTP] Response.data.data keys:', Object.keys(result.data.data))
+    }
+    
+    return result
   }
 
   /**
@@ -372,12 +391,60 @@ export class EnhancedApiService {
     params?: Record<string, any>,
     options: EnhancedRequestOptions = {}
   ): Promise<PaginatedResponse<T>> {
-    const response = await this.get<T[]>(url, {
+    console.log('🔧 [getPaginated] Making request to:', url)
+    console.log('🔧 [getPaginated] With params:', params)
+    console.log('🔧 [getPaginated] Transformed params:', FormDataAdapter.toBackend(params || {}))
+    
+    const response = await this.get<any>(url, {
       ...options,
       params: FormDataAdapter.toBackend(params || {}),
-      adapter: 'pagination'
+      // Don't use pagination adapter - it's corrupting the response
+      // adapter: 'pagination'
     })
 
+    // Backend response structure: { success: true, data: { items: [...], total: X, page: 1, ... } }
+    console.log('🔧 [getPaginated] Raw response:', response)
+    console.log('🔧 [getPaginated] Raw response.data:', (response as any)?.data)
+    console.log('🔧 [getPaginated] Raw response.data keys:', Object.keys((response as any)?.data || {}))
+    console.log('🔧 [getPaginated] Has data prop:', 'data' in (response || {}))
+    
+    if (response && typeof response === 'object' && 'data' in response) {
+      const backendPaginatedData = (response as any).data
+      console.log('✅ [getPaginated] Backend paginated data:', backendPaginatedData)
+      console.log('✅ [getPaginated] Backend paginated data type:', typeof backendPaginatedData)
+      console.log('✅ [getPaginated] Backend paginated data is array:', Array.isArray(backendPaginatedData))
+      console.log('✅ [getPaginated] Items array length:', backendPaginatedData?.items?.length || 0)
+      console.log('🔎 [getPaginated] Has items property:', 'items' in (backendPaginatedData || {}))
+      console.log('🔎 [getPaginated] All properties:', Object.keys(backendPaginatedData || {}))
+      
+      // Convert backend structure to frontend PaginatedResponse structure
+      if (backendPaginatedData && 'items' in backendPaginatedData) {
+        const frontendResponse: PaginatedResponse<T> = {
+          success: response.success,
+          message: response.message,
+          data: backendPaginatedData.items, // Extract items array
+          pagination: {
+            total: backendPaginatedData.total,
+            page: backendPaginatedData.page,
+            page_size: backendPaginatedData.page_size || backendPaginatedData.pageSize,
+            total_pages: backendPaginatedData.total_pages || backendPaginatedData.totalPages,
+            has_next: backendPaginatedData.has_next ?? backendPaginatedData.hasNext,
+            has_prev: backendPaginatedData.has_prev ?? backendPaginatedData.hasPrev
+          },
+          meta: response.meta
+        }
+        
+        console.log('✅ [getPaginated] Converted to frontend structure:', frontendResponse)
+        console.log('✅ [getPaginated] Final items count:', frontendResponse.data.length)
+        return frontendResponse
+      }
+      
+      // Fallback: return as-is if no items property
+      console.log('⚠️ [getPaginated] No items property found, returning as-is')
+      return backendPaginatedData as PaginatedResponse<T>
+    }
+
+    console.log('⚠️ [getPaginated] Using response as-is:', response)
     return response as any as PaginatedResponse<T>
   }
 

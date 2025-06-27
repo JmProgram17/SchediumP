@@ -21,6 +21,7 @@ from app.core.pagination import PaginationParams, SortParams
 def get_pagination_params(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(settings.DEFAULT_PAGE_SIZE, ge=1, le=settings.MAX_PAGE_SIZE),
+    size: Optional[int] = Query(None, ge=1, le=settings.MAX_PAGE_SIZE),
 ) -> PaginationParams:
     """
     Get pagination parameters from query params.
@@ -28,11 +29,14 @@ def get_pagination_params(
     Args:
         page: Page number
         page_size: Items per page
+        size: Alternative parameter for page_size (overrides page_size if provided)
 
     Returns:
         PaginationParams instance
     """
-    return PaginationParams(page=page, page_size=page_size)
+    # Use 'size' parameter if provided, otherwise use 'page_size'
+    final_page_size = size if size is not None else page_size
+    return PaginationParams(page=page, page_size=final_page_size)
 
 
 def get_sort_params(

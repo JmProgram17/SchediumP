@@ -30,7 +30,7 @@ import {
   useBulkDeletePrograms,
   useExportPrograms 
 } from '../hooks'
-import { Program, ProgramStatus, ProgramLevel, ProgramModality } from '../types'
+import { Program, ProgramStatus, ProgramLevel } from '../types'
 
 interface ProgramListProps {
   className?: string
@@ -80,7 +80,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({
 
   const handleDelete = (program: Program) => {
     if (window.confirm(`¿Está seguro de eliminar el programa ${program.name}?`)) {
-      deleteProgram.mutate(program.id)
+      deleteProgram.mutate(program.program_id)
     }
   }
 
@@ -132,19 +132,6 @@ export const ProgramList: React.FC<ProgramListProps> = ({
     )
   }
 
-  const getModalityBadge = (modality: ProgramModality) => {
-    const colors = {
-      PRESENCIAL: 'success',
-      VIRTUAL: 'warning',
-      MIXTA: 'outline'
-    } as const
-
-    return (
-      <Badge variant={colors[modality]} size="sm">
-        {modality}
-      </Badge>
-    )
-  }
 
   if (error) {
     return (
@@ -246,7 +233,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({
                     <th className="text-left p-4 font-medium text-gray-900">Código</th>
                     <th className="text-left p-4 font-medium text-gray-900">Programa</th>
                     <th className="text-left p-4 font-medium text-gray-900">Nivel</th>
-                    <th className="text-left p-4 font-medium text-gray-900">Modalidad</th>
+                    <th className="text-left p-4 font-medium text-gray-900">Cadena</th>
                     <th className="text-left p-4 font-medium text-gray-900">Duración</th>
                     <th className="text-left p-4 font-medium text-gray-900">Estado</th>
                     <th className="w-20 p-4"></th>
@@ -255,7 +242,7 @@ export const ProgramList: React.FC<ProgramListProps> = ({
                 <tbody>
                   {data?.items?.map((program) => (
                     <motion.tr
-                      key={program.id}
+                      key={program.program_id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -263,36 +250,37 @@ export const ProgramList: React.FC<ProgramListProps> = ({
                     >
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-medium">{program.code}</span>
+                          <span className="font-medium">{program.nomenclature?.code || 'N/A'}</span>
                           <span className="text-sm text-gray-500">
-                            {program.department}
+                            {program.department?.name || 'Sin departamento'}
                           </span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className="font-medium">{program.name}</span>
-                          {program.description && (
-                            <span className="text-sm text-gray-500 truncate max-w-xs">
-                              {program.description}
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td className="p-4">
-                        {getLevelBadge(program.level)}
+                        <Badge variant="outline" size="sm">
+                          {program.level?.study_type || 'N/A'}
+                        </Badge>
                       </td>
                       <td className="p-4">
-                        {getModalityBadge(program.modality)}
+                        <Badge variant="outline" size="sm">
+                          {program.chain?.name || 'N/A'}
+                        </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-gray-400" />
-                          <span>{program.duration} meses</span>
+                          <span>{program.level?.duration || 0} meses</span>
                         </div>
                       </td>
                       <td className="p-4">
-                        {getStatusBadge(program.status)}
+                        <Badge variant={program.active ? "success" : "secondary"} size="sm">
+                          {program.active ? "ACTIVO" : "INACTIVO"}
+                        </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">

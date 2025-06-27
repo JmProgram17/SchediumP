@@ -31,40 +31,34 @@ export enum ClassroomType {
 
 // Main entity interface
 export interface Classroom extends BaseEntity {
-  readonly id: string
-  code: string
-  name: string
+  classroom_id: number
+  room_number: string
   capacity: number
-  building: string
-  floor: number
-  equipment?: string[]
-  type: ClassroomType
-  status: ClassroomStatus
-  readonly createdAt: string
-  readonly updatedAt: string
+  campus_id: number
+  classroom_type: string
+  campus?: {
+    campus_id: number
+    address: string
+    phone_number?: string
+    email?: string
+  }
+  readonly created_at: string
+  readonly updated_at: string
 }
 
 // DTO interfaces for API operations
 export interface CreateClassroomDTO {
-  code: string
-  name: string
+  room_number: string
   capacity: number
-  building: string
-  floor: number
-  equipment?: string[]
-  type: ClassroomType
-  status: ClassroomStatus
+  campus_id: number
+  classroom_type?: string
 }
 
 export interface UpdateClassroomDTO {
-  code?: string
-  name?: string
+  room_number?: string
   capacity?: number
-  building?: string
-  floor?: number
-  equipment?: string[]
-  type?: ClassroomType
-  status?: ClassroomStatus
+  campus_id?: number
+  classroom_type?: string
 }
 
 // Query interfaces
@@ -72,7 +66,10 @@ export interface ClassroomListQuery {
   page?: number
   limit?: number
   search?: string
-  status?: ClassroomStatus
+  campus_id?: number
+  classroom_type?: string
+  min_capacity?: number
+  max_capacity?: number
   sortBy?: keyof Classroom
   sortOrder?: 'asc' | 'desc'
 }

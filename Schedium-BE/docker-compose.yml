@@ -19,6 +19,7 @@ services:
       - ./scripts/database/02-initial-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
       - ./scripts/database/03-triggers.sql:/docker-entrypoint-initdb.d/03-triggers.sql:ro
       - ./scripts/database/04-views.sql:/docker-entrypoint-initdb.d/04-views.sql:ro
+      - ./scripts/database/05-make-instructor-fields-required.sql:/docker-entrypoint-initdb.d/05-required-fields.sql:ro
     networks:
       - schedium-network
     command: >
@@ -81,7 +82,7 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       
       # CORS
-      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080}
       
       # Rate Limiting
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}

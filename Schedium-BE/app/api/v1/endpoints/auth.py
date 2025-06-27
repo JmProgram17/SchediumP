@@ -4,7 +4,7 @@ Handles login, logout, token refresh, and user management.
 """
 from typing import Annotated, List, Optional, Union
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -285,6 +285,49 @@ async def get_users(
     )
     return SuccessResponse(
         data=users_page, message="Users retrieved successfully", errors=None
+    )
+
+
+# Coordinators endpoint - temporary workaround for route conflicts
+@router.get("/list-coordinators", response_model=SuccessResponse[List[UserWithoutPassword]])
+async def get_coordinators(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+    active: Optional[bool] = Query(None, description="Filter by active status"),
+) -> SuccessResponse[List[UserWithoutPassword]]:
+    """
+    Get all coordinators.
+    
+    Returns list of users with Coordinator role.
+    Accessible by any authenticated user for dropdowns.
+    """
+    service = AuthService(db)
+    
+    # Get coordinator role ID dynamically
+    from app.repositories.auth import RoleRepository
+    role_repo = RoleRepository(db)
+    coordinator_role = role_repo.get_by_name("Coordinator")
+    
+    if not coordinator_role:
+        return SuccessResponse(
+            data=[],
+            message="No coordinator role found",
+            errors=None
+        )
+    
+    # Get users with coordinator role
+    users = service.get_users(
+        params=PaginationParams(page=1, page_size=1000),  # Get all coordinators
+        role_id=coordinator_role.role_id,
+        active=active if active is not None else True  # Default to active only
+    )
+    
+    coordinators = [UserWithoutPassword.model_validate(user) for user in users.items]
+    
+    return SuccessResponse(
+        data=coordinators,
+        message="Coordinators retrieved successfully",
+        errors=None
     )
 
 

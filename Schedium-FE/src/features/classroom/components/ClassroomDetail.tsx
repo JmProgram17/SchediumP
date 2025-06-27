@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { 
   Edit3, 
   Building, 
@@ -12,7 +12,6 @@ import {
   MapPin, 
   Calendar, 
   FileText,
-  Settings,
   ArrowLeft,
   AlertCircle,
   Package
@@ -157,10 +156,10 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({
           )}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {classroom.name}
+              Aula {classroom.room_number}
             </h1>
             <p className="text-gray-600">
-              {classroom.code} • {classroom.building} - Piso {classroom.floor}
+              {classroom.room_number} • Campus ID: {classroom.campus_id}
             </p>
           </div>
         </div>
@@ -187,14 +186,14 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({
                 <div>
                   <label className="text-sm font-medium text-gray-500">Código</label>
                   <div className="mt-1">
-                    <span className="font-mono font-medium text-lg">{classroom.code}</span>
+                    <span className="font-mono font-medium text-lg">{classroom.room_number}</span>
                   </div>
                 </div>
                 
                 <div>
                   <label className="text-sm font-medium text-gray-500">Estado</label>
                   <div className="mt-1">
-                    {getStatusBadge(classroom.status)}
+                    {getStatusBadge(ClassroomStatus.ACTIVE)}
                   </div>
                 </div>
               </div>
@@ -203,7 +202,7 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({
                 <div>
                   <label className="text-sm font-medium text-gray-500">Tipo de Aula</label>
                   <div className="mt-1">
-                    {getTypeBadge(classroom.type)}
+                    {getTypeBadge(classroom.classroom_type as ClassroomType)}
                   </div>
                 </div>
                 
@@ -234,14 +233,14 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({
                   <label className="text-sm font-medium text-gray-500">Edificio</label>
                   <div className="flex items-center gap-2 mt-1">
                     <Building className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium">{classroom.building}</span>
+                    <span className="font-medium">Campus {classroom.campus_id}</span>
                   </div>
                 </div>
                 
                 <div>
                   <label className="text-sm font-medium text-gray-500">Piso</label>
                   <div className="mt-1">
-                    <span className="font-medium">Piso {classroom.floor}</span>
+                    <span className="font-medium">Capacidad: {classroom.capacity}</span>
                   </div>
                 </div>
               </div>
@@ -257,18 +256,7 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {classroom.equipment && classroom.equipment.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {classroom.equipment.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      <Settings className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 italic">No hay equipamiento registrado</p>
-              )}
+              <p className="text-gray-500 italic">No hay equipamiento registrado</p>
             </CardContent>
           </Card>
         </div>
@@ -322,7 +310,7 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({
               
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">
-                  {classroom.equipment?.length || 0}
+                  0
                 </div>
                 <p className="text-sm text-gray-500">Equipos registrados</p>
               </div>

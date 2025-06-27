@@ -27,12 +27,13 @@ export const classroomKeys = {
 /**
  * Hook to fetch paginated list of classrooms
  */
-export const useClassroomList = (query: ClassroomListQuery = {}) => {
+export const useClassroomList = (query: ClassroomListQuery = {}, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: classroomKeys.list(query),
     queryFn: () => classroomService.getClassrooms(query),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: options?.enabled ?? true,
     meta: {
       errorMessage: 'Error al cargar la lista de aulas'
     }

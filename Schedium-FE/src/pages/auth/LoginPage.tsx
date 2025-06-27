@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/auth.store'
-import { Button, Input, Card, CardContent, ThemeToggle } from '@/design-system/components'
+import { Button, Input, Card, CardContent } from '@/design-system/components'
+import { ThemeToggle } from '@/design-system/themes/ThemeToggle'
+import { useIsDark, useThemeSync } from '@/design-system/themes/ThemeProvider'
 import { ROUTES } from '@/constants'
 import { motion } from 'framer-motion'
 
@@ -24,19 +26,36 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
+const REMEMBER_EMAIL_KEY = 'schedium_remembered_email'
+
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, isLoading, error, clearError } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberUser, setRememberUser] = useState(false)
+  const isDark = useIsDark()
+  
+  // Force theme synchronization
+  useThemeSync()
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
+
+  // Load remembered email on component mount
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY)
+    if (rememberedEmail) {
+      setValue('email', rememberedEmail)
+      setRememberUser(true)
+    }
+  }, [setValue])
 
   const onSubmit = async (data: LoginFormData) => {
     clearError()
@@ -46,6 +65,13 @@ export function LoginPage() {
       const sanitizedData = {
         email: DOMPurify.sanitize(data.email),
         password: data.password, // Don't sanitize password as it might contain special chars
+      }
+      
+      // Handle remember user
+      if (rememberUser) {
+        localStorage.setItem(REMEMBER_EMAIL_KEY, sanitizedData.email)
+      } else {
+        localStorage.removeItem(REMEMBER_EMAIL_KEY)
       }
       
       await login(sanitizedData)
@@ -59,43 +85,49 @@ export function LoginPage() {
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 lg:px-8 overflow-hidden">
-      <div className="w-full max-w-sm">
-        {/* Theme toggle in top right */}
-        <div className="absolute top-4 right-4">
-          <ThemeToggle />
-        </div>
-        
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-8"
-        >
-          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900 mb-4 shadow-lg">
-            <svg className="h-10 w-10 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Schedium
-          </h1>
-          <p className="text-base text-gray-600 dark:text-gray-400 mt-1">
-            Sistema de Gestión Académica - SENA CGMLTI
-          </p>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
-          <Card variant="elevated" className="shadow-xl">
-            <CardContent className="p-8">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6 text-center">
-                Iniciar Sesión
-              </h2>
-              <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+    <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-50'} relative`}>
+      {/* Theme Toggle - Fixed Position */}
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle size="md" />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        className="w-full max-w-md px-4"
+      >
+        <Card variant="elevated" className="shadow-2xl">
+          <CardContent className="p-8">
+            {/* Header with Logos - Inside Card */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="mb-8"
+            >
+              <div className="flex justify-center items-center gap-6">
+                {/* Schedium Logo */}
+                <img 
+                  src={isDark ? '/images/Schedium-Blanco.svg' : '/images/Schedium-Negro.svg'}
+                  alt="Schedium Logo"
+                  className="h-12 object-contain"
+                />
+
+                {/* Vertical divider line */}
+                <div className={`w-px h-14 ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`} />
+
+                {/* SENA Logo */}
+                <img 
+                  src="/images/Sena-Verde.svg"
+                  alt="SENA Logo"
+                  className="h-14 object-contain"
+                />
+              </div>
+            </motion.div>
+
+            {/* Login Form */}
+            <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
               <Input
                 {...register('email')}
                 label="Correo Electrónico"
@@ -128,7 +160,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    className={`${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'} transition-colors`}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
                     {showPassword ? (
@@ -145,43 +177,58 @@ export function LoginPage() {
                 }
               />
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center">
+              {/* Remember User & Forgot Password - Same Line */}
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    checked={rememberUser}
+                    onChange={(e) => setRememberUser(e.target.checked)}
+                    className={`h-3 w-3 sm:h-4 sm:w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${
+                      isDark ? 'bg-gray-800 border-gray-600' : ''
+                    }`}
                   />
-                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                    Recordar sesión
+                  <span className={`ml-1 sm:ml-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Recordar usuario
                   </span>
                 </label>
                 <Link
                   to={ROUTES.FORGOT_PASSWORD}
-                  className="text-sm text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 font-medium transition-colors"
+                  className={`font-medium transition-colors whitespace-nowrap ${
+                    isDark 
+                      ? 'text-primary-400 hover:text-primary-300' 
+                      : 'text-primary-600 hover:text-primary-500'
+                  }`}
                 >
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
 
+              {/* Error Message */}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-md bg-error-50 dark:bg-error-900/20 border border-error-200 dark:border-error-800 p-4"
+                  className={`rounded-md p-4 ${
+                    isDark 
+                      ? 'bg-error-900/20 border-error-800' 
+                      : 'bg-error-50 border-error-200'
+                  } border`}
                 >
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-error-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className={`h-5 w-5 ${isDark ? 'text-error-400' : 'text-error-400'}`} viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-error-700 dark:text-error-400">{error}</p>
+                      <p className={`text-sm ${isDark ? 'text-error-400' : 'text-error-700'}`}>{error}</p>
                     </div>
                   </div>
                 </motion.div>
               )}
 
+              {/* Submit Button */}
               <Button
                 type="submit"
                 loading={isLoading}
@@ -191,41 +238,10 @@ export function LoginPage() {
               >
                 {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </Button>
-
-              <div className="mt-6 relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-gray-600" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
-                    Información de acceso
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-4 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Use sus credenciales para acceder al sistema.
-                  <br />
-                  Si tiene problemas de acceso, contacte al administrador.
-                </p>
-              </div>
             </form>
           </CardContent>
         </Card>
       </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 text-center"
-        >
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 SENA CGMLTI. Todos los derechos reservados.
-          </p>
-        </motion.div>
-      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -37,7 +37,7 @@ import {
   School
 } from 'lucide-react'
 
-export function InfrastructurePage() {
+function InfrastructurePage() {
   const navigate = useNavigate()
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [filters, setFilters] = useState({
@@ -48,9 +48,9 @@ export function InfrastructurePage() {
     availability: 'all'
   })
 
-  // Data hooks
-  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList()
-  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList()
+  // Data hooks - Load only summary data
+  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList({ limit: 1 })
+  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList({ limit: 1 })
 
   const isLoading = classroomsLoading || schedulesLoading
 
@@ -651,3 +651,5 @@ export function InfrastructurePage() {
     </div>
   )
 }
+
+export default memo(InfrastructurePage)

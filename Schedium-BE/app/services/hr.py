@@ -20,6 +20,7 @@ from app.repositories.hr import (
     DepartmentRepository,
     InstructorRepository,
 )
+from app.repositories.auth import UserRepository
 from app.schemas.hr import Contract as ContractSchema
 from app.schemas.hr import ContractCreate, ContractUpdate
 from app.schemas.hr import Department as DepartmentSchema
@@ -36,6 +37,7 @@ class HRService:
         self.department_repo = DepartmentRepository(db)
         self.contract_repo = ContractRepository(db)
         self.instructor_repo = InstructorRepository(db)
+        self.user_repo = UserRepository(db)
 
     # Department operations
     def create_department(self, dept_in: DepartmentCreate) -> DepartmentSchema:
@@ -47,6 +49,22 @@ class HRService:
                 detail=f"Department '{dept_in.name}' already exists",
                 error_code="DEPARTMENT_EXISTS",
             )
+
+        # Validate coordinator if provided
+        if dept_in.coordinator_id:
+            coordinator = self.user_repo.get(dept_in.coordinator_id)
+            if not coordinator:
+                raise NotFoundException(
+                    detail=f"User with ID {dept_in.coordinator_id} not found",
+                    error_code="COORDINATOR_NOT_FOUND"
+                )
+            
+            # Verify coordinator has the right role
+            if coordinator.role.name != "Coordinator":
+                raise BadRequestException(
+                    detail=f"User {coordinator.first_name} {coordinator.last_name} is not a coordinator",
+                    error_code="INVALID_COORDINATOR_ROLE"
+                )
 
         department = self.department_repo.create(obj_in=dept_in)
         return DepartmentSchema.model_validate(department)
@@ -64,6 +82,11 @@ class HRService:
         page.items = [DepartmentSchema.model_validate(item) for item in page.items]
         return page
 
+    def get_all_departments(self) -> List[DepartmentSchema]:
+        """Get all departments for dropdown/select components."""
+        departments = self.department_repo.get_all()
+        return [DepartmentSchema.model_validate(dept) for dept in departments]
+
     def update_department(
         self, department_id: int, dept_in: DepartmentUpdate
     ) -> DepartmentSchema:
@@ -78,6 +101,26 @@ class HRService:
                     detail=f"Department '{dept_in.name}' already exists",
                     error_code="DEPARTMENT_EXISTS",
                 )
+
+        # Validate coordinator if provided
+        if dept_in.coordinator_id is not None:
+            if dept_in.coordinator_id == 0:
+                # Removing coordinator (setting to None)
+                dept_in.coordinator_id = None
+            else:
+                coordinator = self.user_repo.get(dept_in.coordinator_id)
+                if not coordinator:
+                    raise NotFoundException(
+                        detail=f"User with ID {dept_in.coordinator_id} not found",
+                        error_code="COORDINATOR_NOT_FOUND"
+                    )
+                
+                # Verify coordinator has the right role
+                if coordinator.role.name != "Coordinator":
+                    raise BadRequestException(
+                        detail=f"User {coordinator.first_name} {coordinator.last_name} is not a coordinator",
+                        error_code="INVALID_COORDINATOR_ROLE"
+                    )
 
         updated_department = self.department_repo.update(
             db_obj=current_department, obj_in=dept_in
@@ -178,12 +221,22 @@ class HRService:
                 error_code="EMAIL_TAKEN",
             )
 
-        # Validate foreign keys
-        if instructor_in.contract_id:
-            self.contract_repo.get_or_404(instructor_in.contract_id)
+        # Validate required foreign keys
+        if not instructor_in.contract_id:
+            raise BadRequestException(
+                detail="Contract ID is required",
+                error_code="CONTRACT_REQUIRED",
+            )
+        
+        if not instructor_in.department_id:
+            raise BadRequestException(
+                detail="Department ID is required", 
+                error_code="DEPARTMENT_REQUIRED",
+            )
 
-        if instructor_in.department_id:
-            self.department_repo.get_or_404(instructor_in.department_id)
+        # Validate foreign key references exist
+        self.contract_repo.get_or_404(instructor_in.contract_id)
+        self.department_repo.get_or_404(instructor_in.department_id)
 
         instructor = self.instructor_repo.create(obj_in=instructor_in)
         instructor = self.instructor_repo.get_with_relations(instructor.instructor_id)

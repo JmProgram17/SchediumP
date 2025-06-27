@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Card,
@@ -40,7 +40,7 @@ import {
 type ReportType = 'schedule-matrix' | 'instructor-workload' | 'classroom-usage' | 'program-statistics' | 'attendance-summary'
 type ExportFormat = 'pdf' | 'excel' | 'csv' | 'png'
 
-export function InformesPage() {
+function InformesPage() {
   const [selectedReport, setSelectedReport] = useState<ReportType>('schedule-matrix')
   const [isGenerating, setIsGenerating] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
@@ -54,15 +54,32 @@ export function InformesPage() {
     groupByProgram: true
   })
 
-  // Data hooks
-  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList()
-  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList()
-  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList()
-  const { data: programsData, isLoading: programsLoading } = useProgramList()
+  // Data hooks - Load only when needed for specific reports
+  const { data: instructorsData, isLoading: instructorsLoading } = useInstructorList(
+    { limit: 50 },
+    { enabled: selectedReport === 'instructor-workload' }
+  )
+  const { data: schedulesData, isLoading: schedulesLoading } = useScheduleList(
+    {},
+    { enabled: selectedReport === 'schedule-matrix' || selectedReport === 'attendance-summary' }
+  )
+  const { data: classroomsData, isLoading: classroomsLoading } = useClassroomList(
+    { limit: 50 },
+    { enabled: selectedReport === 'classroom-usage' }
+  )
+  const { data: programsData, isLoading: programsLoading } = useProgramList(
+    { limit: 50 },
+    { enabled: selectedReport === 'program-statistics' }
+  )
 
-  const isLoading = instructorsLoading || schedulesLoading || classroomsLoading || programsLoading
+  const isLoading = (
+    (selectedReport === 'instructor-workload' && instructorsLoading) ||
+    (selectedReport === 'classroom-usage' && classroomsLoading) ||
+    (selectedReport === 'program-statistics' && programsLoading) ||
+    ((selectedReport === 'schedule-matrix' || selectedReport === 'attendance-summary') && schedulesLoading)
+  )
 
-  const reportTypes = [
+  const reportTypes = useMemo(() => [
     {
       id: 'schedule-matrix',
       title: 'Matriz de Horarios',
@@ -103,40 +120,40 @@ export function InformesPage() {
       estimatedTime: '3-5 min',
       features: ['Asistencia por ficha', 'Estadísticas semanales', 'Alertas de inasistencia']
     }
-  ]
+  ], [])
 
-  const exportFormats = [
+  const exportFormats = useMemo(() => [
     { value: 'pdf', label: 'PDF', icon: FileText, description: 'Documento imprimible' },
     { value: 'excel', label: 'Excel', icon: FileSpreadsheet, description: 'Hoja de cálculo' },
     { value: 'csv', label: 'CSV', icon: FileText, description: 'Datos separados por comas' },
     { value: 'png', label: 'Imagen PNG', icon: FileImage, description: 'Imagen de alta calidad' }
-  ]
+  ], [])
 
-  const trimesters = [
+  const trimesters = useMemo(() => [
     { value: '2024-1', label: 'Primer Trimestre 2024' },
     { value: '2024-2', label: 'Segundo Trimestre 2024' },
     { value: '2024-3', label: 'Tercer Trimestre 2024' }
-  ]
+  ], [])
 
-  const sedes = [
+  const sedes = useMemo(() => [
     { value: 'all', label: 'Todas las sedes' },
     { value: 'principal', label: 'Sede Principal' },
     { value: 'anexo', label: 'Sede Anexo' },
     { value: 'satelite', label: 'Sede Satélite' }
-  ]
+  ], [])
 
-  const dateRanges = [
+  const dateRanges = useMemo(() => [
     { value: 'current-week', label: 'Semana actual' },
     { value: 'current-month', label: 'Mes actual' },
     { value: 'current-trimester', label: 'Trimestre actual' },
     { value: 'custom', label: 'Rango personalizado' }
-  ]
+  ], [])
 
-  const updateFilter = (key: string, value: string | boolean) => {
+  const updateFilter = useCallback((key: string, value: string | boolean) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-  }
+  }, [])
 
-  const generateReport = async (format: ExportFormat) => {
+  const generateReport = useCallback(async (format: ExportFormat) => {
     setIsGenerating(true)
     // Simulate report generation
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -144,24 +161,19 @@ export function InformesPage() {
     
     // Simulate download
     console.log(`Generating ${selectedReport} report in ${format} format`)
-  }
+  }, [selectedReport])
 
-  const previewReport = () => {
+  const previewReport = useCallback(() => {
     setShowPreview(true)
-  }
+  }, [])
 
-  const scheduleReport = () => {
+  const scheduleReport = useCallback(() => {
     // Schedule report functionality
     console.log('Scheduling report for regular generation')
-  }
+  }, [])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
-  }
+  // Show interface immediately with progressive loading
+  const showLoadingForReport = isLoading && isGenerating
 
   const selectedReportData = reportTypes.find(r => r.id === selectedReport)
 
@@ -600,3 +612,5 @@ export function InformesPage() {
     </div>
   )
 }
+
+export default memo(InformesPage)

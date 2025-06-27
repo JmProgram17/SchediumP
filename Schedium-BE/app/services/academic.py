@@ -22,6 +22,7 @@ from app.repositories.academic import (
     ProgramRepository,
     StudentGroupRepository,
 )
+from app.repositories.hr import DepartmentRepository
 from app.schemas.academic import Chain as ChainSchema
 from app.schemas.academic import ChainCreate, ChainUpdate
 from app.schemas.academic import Level as LevelSchema
@@ -36,6 +37,7 @@ from app.schemas.academic import (
     StudentGroupDisable,
     StudentGroupUpdate,
 )
+from app.models.scheduling import Schedule
 
 
 class AcademicService:
@@ -48,6 +50,7 @@ class AcademicService:
         self.nomenclature_repo = NomenclatureRepository(db)
         self.program_repo = ProgramRepository(db)
         self.group_repo = StudentGroupRepository(db)
+        self.department_repo = DepartmentRepository(db)
 
     # Level operations
     def create_level(self, level_in: LevelCreate) -> LevelSchema:
@@ -73,6 +76,11 @@ class AcademicService:
         page = self.level_repo.get_paginated(params)
         page.items = [LevelSchema.model_validate(item) for item in page.items]
         return page
+
+    def get_all_levels(self) -> List[LevelSchema]:
+        """Get all levels for dropdown/select components."""
+        levels = self.level_repo.get_all()
+        return [LevelSchema.model_validate(level) for level in levels]
 
     def update_level(self, level_id: int, level_in: LevelUpdate) -> LevelSchema:
         """Update level."""
@@ -118,6 +126,11 @@ class AcademicService:
         page = self.chain_repo.get_paginated(params)
         page.items = [ChainSchema.model_validate(item) for item in page.items]
         return page
+
+    def get_all_chains(self) -> List[ChainSchema]:
+        """Get all chains for dropdown/select components."""
+        chains = self.chain_repo.get_all()
+        return [ChainSchema.model_validate(chain) for chain in chains]
 
     def update_chain(self, chain_id: int, chain_in: ChainUpdate) -> ChainSchema:
         """Update chain."""
@@ -177,6 +190,11 @@ class AcademicService:
         page.items = [NomenclatureSchema.model_validate(item) for item in page.items]
         return page
 
+    def get_all_nomenclatures(self) -> List[NomenclatureSchema]:
+        """Get all nomenclatures for dropdown/select components."""
+        nomenclatures = self.nomenclature_repo.get_all()
+        return [NomenclatureSchema.model_validate(nom) for nom in nomenclatures]
+
     def update_nomenclature(
         self, nomenclature_id: int, nom_in: NomenclatureUpdate
     ) -> NomenclatureSchema:
@@ -230,15 +248,45 @@ class AcademicService:
         if program_in.level_id:
             self.level_repo.get_or_404(program_in.level_id)
 
-        program = self.program_repo.create(obj_in=program_in)
-        program = self.program_repo.get_with_relations(program.program_id)
-        return ProgramSchema.model_validate(program)
+        # Check for duplicate program (same name, nomenclature, level, and chain)
+        print(f"DEBUG: Checking uniqueness for program: name={program_in.name}, nomenclature_id={program_in.nomenclature_id}, level_id={program_in.level_id}, chain_id={program_in.chain_id}")
+        
+        existing_program = self.program_repo.check_program_uniqueness(
+            name=program_in.name,
+            nomenclature_id=program_in.nomenclature_id,
+            level_id=program_in.level_id,
+            chain_id=program_in.chain_id
+        )
+        
+        print(f"DEBUG: Existing program found: {existing_program}")
+        
+        if existing_program:
+            print(f"DEBUG: Duplicate detected! Existing program ID: {existing_program.program_id}")
+            raise ConflictException(
+                detail=f"Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.",
+                error_code="PROGRAM_ALREADY_EXISTS",
+            )
+
+        try:
+            program = self.program_repo.create(obj_in=program_in)
+            program = self.program_repo.get_with_relations(program.program_id)
+            return ProgramSchema.model_validate(program)
+        except Exception as e:
+            # Handle database constraint violations
+            if "uq_program_name_nomenclature_level_chain" in str(e) or "duplicate key value violates unique constraint" in str(e):
+                raise ConflictException(
+                    detail=f"Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.",
+                    error_code="PROGRAM_ALREADY_EXISTS",
+                )
+            # Re-raise other exceptions
+            raise e
 
     def get_program(self, program_id: int) -> ProgramSchema:
         """Get program by ID."""
         program = self.program_repo.get_with_relations(program_id)
         if not program:
             raise NotFoundException(f"Program with id {program_id} not found")
+        
         return ProgramSchema.model_validate(program)
 
     def get_programs(
@@ -253,7 +301,10 @@ class AcademicService:
         page = self.program_repo.search_programs(
             params, search, department_id, level_id, chain_id
         )
-        page.items = [ProgramSchema.model_validate(item) for item in page.items]
+        
+        # Convert models to schemas
+        program_schemas = [ProgramSchema.model_validate(program) for program in page.items]
+        page.items = program_schemas
         return page
 
     def update_program(
@@ -282,9 +333,42 @@ class AcademicService:
             if program_in.level_id:
                 self.level_repo.get_or_404(program_in.level_id)
 
-        self.program_repo.update(db_obj=program, obj_in=program_in)
-        updated_program = self.program_repo.get_with_relations(program_id)
-        return ProgramSchema.model_validate(updated_program)
+        # Check for duplicate program if any of the key fields are being updated
+        update_data = program_in.model_dump(exclude_unset=True)
+        if any(field in update_data for field in ['name', 'nomenclature_id', 'level_id', 'chain_id']):
+            # Get the values that will be used (either updated or current)
+            final_name = update_data.get('name', program.name)
+            final_nomenclature_id = update_data.get('nomenclature_id', program.nomenclature_id)
+            final_level_id = update_data.get('level_id', program.level_id)
+            final_chain_id = update_data.get('chain_id', program.chain_id)
+            
+            existing_program = self.program_repo.check_program_uniqueness(
+                name=final_name,
+                nomenclature_id=final_nomenclature_id,
+                level_id=final_level_id,
+                chain_id=final_chain_id,
+                exclude_program_id=program_id  # Exclude current program from check
+            )
+            
+            if existing_program:
+                raise ConflictException(
+                    detail=f"Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.",
+                    error_code="PROGRAM_ALREADY_EXISTS",
+                )
+
+        try:
+            self.program_repo.update(db_obj=program, obj_in=program_in)
+            updated_program = self.program_repo.get_with_relations(program_id)
+            return ProgramSchema.model_validate(updated_program)
+        except Exception as e:
+            # Handle database constraint violations
+            if "uq_program_name_nomenclature_level_chain" in str(e) or "duplicate key value violates unique constraint" in str(e):
+                raise ConflictException(
+                    detail=f"Ya existe un programa con la misma combinación de nombre, nivel y cadena de formación. Modifica al menos uno de estos campos.",
+                    error_code="PROGRAM_ALREADY_EXISTS",
+                )
+            # Re-raise other exceptions
+            raise e
 
     def delete_program(self, program_id: int) -> None:
         """Delete program."""
@@ -332,10 +416,37 @@ class AcademicService:
 
     def get_student_group(self, group_id: int) -> StudentGroupSchema:
         """Get student group by ID."""
+        
         group = self.group_repo.get_with_relations(group_id)
         if not group:
             raise NotFoundException(f"Student group with id {group_id} not found")
-        return StudentGroupSchema.model_validate(group)
+        
+        # Manually add schedule data
+        group_data = {
+            "group_id": group.group_id,
+            "group_number": group.group_number,
+            "program_id": group.program_id,
+            "start_date": group.start_date,
+            "end_date": group.end_date,
+            "schedule_id": group.schedule_id,
+            "active": group.active,
+            "created_at": group.created_at,
+            "updated_at": group.updated_at,
+            "program": group.program,
+            "schedule": None  # Default to None
+        }
+        
+        if group.schedule_id:
+            schedule = self.db.query(Schedule).filter(Schedule.schedule_id == group.schedule_id).first()
+            if schedule:
+                group_data["schedule"] = {
+                    "schedule_id": schedule.schedule_id,
+                    "name": schedule.name,
+                    "start_time": str(schedule.start_time),
+                    "end_time": str(schedule.end_time),
+                }
+        
+        return StudentGroupSchema.model_validate(group_data)
 
     def get_student_groups(
         self,
@@ -348,6 +459,7 @@ class AcademicService:
         start_date_to: Optional[date] = None,
     ) -> Page[StudentGroupSchema]:
         """Get paginated list of student groups."""
+        
         page = self.group_repo.search_groups(
             params,
             search,
@@ -357,7 +469,37 @@ class AcademicService:
             start_date_from,
             start_date_to,
         )
-        page.items = [StudentGroupSchema.model_validate(item) for item in page.items]
+        
+        # Manually add schedule data to each group
+        enriched_items = []
+        for group in page.items:
+            group_data = {
+                "group_id": group.group_id,
+                "group_number": group.group_number,
+                "program_id": group.program_id,
+                "start_date": group.start_date,
+                "end_date": group.end_date,
+                "schedule_id": group.schedule_id,
+                "active": group.active,
+                "created_at": group.created_at,
+                "updated_at": group.updated_at,
+                "program": group.program,
+                "schedule": None  # Default to None
+            }
+            
+            if group.schedule_id:
+                schedule = self.db.query(Schedule).filter(Schedule.schedule_id == group.schedule_id).first()
+                if schedule:
+                    group_data["schedule"] = {
+                        "schedule_id": schedule.schedule_id,
+                        "name": schedule.name,
+                        "start_time": str(schedule.start_time),
+                        "end_time": str(schedule.end_time),
+                    }
+            
+            enriched_items.append(StudentGroupSchema.model_validate(group_data))
+        
+        page.items = enriched_items
         return page
 
     def update_student_group(
@@ -397,8 +539,38 @@ class AcademicService:
             schedule_repo.get_or_404(group_in.schedule_id)
 
         group = self.group_repo.update(db_obj=group, obj_in=group_in)
+        
+        # Force refresh of the updated group from DB to get latest data
+        self.db.refresh(group)
         group = self.group_repo.get_with_relations(group_id)
-        return StudentGroupSchema.model_validate(group)
+        
+        # Manually add schedule data like in get_student_groups
+        group_data = {
+            "group_id": group.group_id,
+            "group_number": group.group_number,
+            "program_id": group.program_id,
+            "start_date": group.start_date,
+            "end_date": group.end_date,
+            "schedule_id": group.schedule_id,
+            "active": group.active,
+            "created_at": group.created_at,
+            "updated_at": group.updated_at,
+            "program": group.program,
+            "schedule": None  # Default to None
+        }
+        
+        # ALWAYS fetch the schedule, even if it's cached wrong
+        if group.schedule_id:
+            schedule = self.db.query(Schedule).filter(Schedule.schedule_id == group.schedule_id).first()
+            if schedule:
+                group_data["schedule"] = {
+                    "schedule_id": schedule.schedule_id,
+                    "name": schedule.name,
+                    "start_time": str(schedule.start_time),
+                    "end_time": str(schedule.end_time),
+                }
+        
+        return StudentGroupSchema.model_validate(group_data)
 
     def disable_student_group(
         self, group_id: int, disable_data: StudentGroupDisable

@@ -54,7 +54,7 @@ export const InstructorList: React.FC<InstructorListProps> = ({
     limit: parseInt(searchParams.get('limit') || '10'),
     search: searchParams.get('search') || '',
     status: searchParams.get('status') as InstructorStatus || undefined,
-    sortBy: searchParams.get('sortBy') as keyof Instructor || 'lastName',
+    sortBy: searchParams.get('sortBy') as keyof Instructor || 'last_name',
     sortOrder: searchParams.get('sortOrder') as 'asc' | 'desc' || 'asc'
   }), [searchParams])
 
@@ -79,8 +79,8 @@ export const InstructorList: React.FC<InstructorListProps> = ({
   }
 
   const handleDelete = (instructor: Instructor) => {
-    if (window.confirm(`¿Está seguro de eliminar al instructor ${instructor.firstName} ${instructor.lastName}?`)) {
-      deleteInstructor.mutate(instructor.id)
+    if (window.confirm(`¿Está seguro de eliminar al instructor ${instructor.first_name} ${instructor.last_name}?`)) {
+      deleteInstructor.mutate(instructor.instructor_id)
     }
   }
 
@@ -190,7 +190,7 @@ export const InstructorList: React.FC<InstructorListProps> = ({
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
-                placeholder="Buscar por nombre, documento o email..."
+                placeholder="Buscar por nombre, email o teléfono..."
                 value={query.search}
                 onChange={(e) => handleSearch(e.target.value)}
                 icon={Search}
@@ -233,13 +233,10 @@ export const InstructorList: React.FC<InstructorListProps> = ({
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="w-12 p-4">
-                      <Square className="w-4 h-4 text-gray-400" />
-                    </th>
-                    <th className="text-left p-4 font-medium text-gray-900">Documento</th>
                     <th className="text-left p-4 font-medium text-gray-900">Nombre Completo</th>
                     <th className="text-left p-4 font-medium text-gray-900">Email</th>
-                    <th className="text-left p-4 font-medium text-gray-900">Especialización</th>
+                    <th className="text-left p-4 font-medium text-gray-900">Teléfono</th>
+                    <th className="text-left p-4 font-medium text-gray-900">Coordinación</th>
                     <th className="text-left p-4 font-medium text-gray-900">Contrato</th>
                     <th className="text-left p-4 font-medium text-gray-900">Estado</th>
                     <th className="w-20 p-4"></th>
@@ -248,30 +245,19 @@ export const InstructorList: React.FC<InstructorListProps> = ({
                 <tbody>
                   {data?.items?.map((instructor) => (
                     <motion.tr
-                      key={instructor.id}
+                      key={instructor.instructor_id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       className="border-b hover:bg-gray-50 transition-colors"
                     >
                       <td className="p-4">
-                        <Square className="w-4 h-4 text-gray-400" />
-                      </td>
-                      <td className="p-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{instructor.documentNumber}</span>
-                          <Badge variant="outline" size="sm">
-                            {instructor.documentType}
-                          </Badge>
-                        </div>
-                      </td>
-                      <td className="p-4">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {instructor.firstName} {instructor.lastName}
+                            {instructor.first_name} {instructor.last_name}
                           </span>
                           <span className="text-sm text-gray-500">
-                            {instructor.department}
+                            Instructor
                           </span>
                         </div>
                       </td>
@@ -279,13 +265,22 @@ export const InstructorList: React.FC<InstructorListProps> = ({
                         <span className="text-gray-900">{instructor.email}</span>
                       </td>
                       <td className="p-4">
-                        <span className="text-gray-900">{instructor.specialization}</span>
+                        <span className="text-gray-900">{instructor.phone_number || 'N/A'}</span>
                       </td>
                       <td className="p-4">
-                        {getContractTypeBadge(instructor.contractType)}
+                        <span className="text-gray-900">
+                          {instructor.department?.name || 'Sin coordinación'}
+                        </span>
                       </td>
                       <td className="p-4">
-                        {getStatusBadge(instructor.status)}
+                        <Badge variant="outline" size="sm">
+                          {instructor.contract?.contract_type || 'Sin contrato'}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={instructor.active ? 'success' : 'secondary'} size="sm">
+                          {instructor.active ? 'ACTIVO' : 'INACTIVO'}
+                        </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">

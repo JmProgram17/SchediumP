@@ -3,7 +3,7 @@ Human resources endpoints.
 Handles departments, contracts, and instructors.
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -54,6 +54,20 @@ async def get_departments(
 
     return SuccessResponse(
         data=departments, message="Departments retrieved successfully", errors=None
+    )
+
+
+@router.get("/departments/all", response_model=SuccessResponse[List[Department]])
+async def get_all_departments(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> SuccessResponse[List[Department]]:
+    """Get all departments for dropdown/select components."""
+    service = HRService(db)
+    departments = service.get_all_departments()
+
+    return SuccessResponse(
+        data=departments, message="All departments retrieved successfully", errors=None
     )
 
 

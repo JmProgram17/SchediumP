@@ -30,6 +30,23 @@ class DepartmentRepository(
     def __init__(self, db: Session):
         super().__init__(Department, db)
 
+    def get(self, id: int) -> Optional[Department]:
+        """Get department by ID with coordinator loaded."""
+        return (
+            self.db.query(Department)
+            .options(joinedload(Department.coordinator))
+            .filter(Department.department_id == id)
+            .first()
+        )
+
+    def get_all(self) -> List[Department]:
+        """Get all departments with coordinators loaded."""
+        return (
+            self.db.query(Department)
+            .options(joinedload(Department.coordinator))
+            .all()
+        )
+
     def get_by_name(self, name: str) -> Optional[Department]:
         """Get department by name."""
         return self.db.query(Department).filter(Department.name == name).first()
@@ -56,7 +73,9 @@ class DepartmentRepository(
         self, params: PaginationParams, search: Optional[str] = None
     ) -> Page[Department]:
         """Search departments with filters."""
-        query = self.db.query(Department)
+        query = self.db.query(Department).options(
+            joinedload(Department.coordinator)
+        )
 
         if search:
             search_filter = or_(

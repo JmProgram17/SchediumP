@@ -18,6 +18,9 @@ from app.models.scheduling import (
     Schedule,
     TimeBlock,
 )
+from app.models.academic import StudentGroup
+from app.models.hr import Instructor
+from app.models.infrastructure import Classroom
 from app.repositories.base import BaseRepository
 from app.schemas.scheduling import (
     ClassScheduleCreate,
@@ -249,21 +252,60 @@ class ClassScheduleRepository(
 
     def get_with_relations(self, class_schedule_id: int) -> Optional[ClassSchedule]:
         """Get class schedule with all relations loaded."""
-        return (
-            self.db.query(ClassSchedule)
-            .options(
-                joinedload(ClassSchedule.quarter),
-                joinedload(ClassSchedule.day_time_block).joinedload(DayTimeBlock.day),
-                joinedload(ClassSchedule.day_time_block).joinedload(
-                    DayTimeBlock.time_block
-                ),
-                joinedload(ClassSchedule.group).joinedload("program"),
-                joinedload(ClassSchedule.instructor),
-                joinedload(ClassSchedule.classroom).joinedload("campus"),
+        # Get the basic schedule first
+        schedule = self.db.query(ClassSchedule).filter(
+            ClassSchedule.class_schedule_id == class_schedule_id
+        ).first()
+        
+        if not schedule:
+            return None
+            
+        # Manually load relations to handle NULLs properly
+        if schedule.quarter_id:
+            schedule.quarter = self.db.query(Quarter).filter(
+                Quarter.quarter_id == schedule.quarter_id
+            ).first()
+            
+        if schedule.day_time_block_id:
+            from sqlalchemy.orm import joinedload
+            schedule.day_time_block = (
+                self.db.query(DayTimeBlock)
+                .options(
+                    joinedload(DayTimeBlock.day),
+                    joinedload(DayTimeBlock.time_block)
+                )
+                .filter(DayTimeBlock.day_time_block_id == schedule.day_time_block_id)
+                .first()
             )
-            .filter(ClassSchedule.class_schedule_id == class_schedule_id)
-            .first()
-        )
+            
+        if schedule.group_id:
+            schedule.group = (
+                self.db.query(StudentGroup)
+                .options(joinedload(StudentGroup.program))
+                .filter(StudentGroup.group_id == schedule.group_id)
+                .first()
+            )
+            
+        if schedule.instructor_id:
+            schedule.instructor = self.db.query(Instructor).filter(
+                Instructor.instructor_id == schedule.instructor_id
+            ).first()
+        else:
+            # Explicitly set to None for NULL instructor_id
+            schedule.instructor = None
+            
+        if schedule.classroom_id:
+            schedule.classroom = (
+                self.db.query(Classroom)
+                .options(joinedload(Classroom.campus))
+                .filter(Classroom.classroom_id == schedule.classroom_id)
+                .first()
+            )
+        else:
+            # Explicitly set to None for NULL classroom_id
+            schedule.classroom = None
+            
+        return schedule
 
     def check_instructor_conflict(
         self,

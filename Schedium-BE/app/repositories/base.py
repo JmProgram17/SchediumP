@@ -132,6 +132,26 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
         return query.offset(skip).limit(limit).all()
 
+    def get_all(self, filters: Optional[Dict[str, Any]] = None) -> List[ModelType]:
+        """
+        Get all records with optional filtering.
+
+        Args:
+            filters: Dictionary of field-value pairs to filter by
+
+        Returns:
+            List of all model instances
+        """
+        query = self.db.query(self.model)
+
+        # Apply filters
+        if filters:
+            for field, value in filters.items():
+                if hasattr(self.model, field):
+                    query = query.filter(getattr(self.model, field) == value)
+
+        return query.all()
+
     def get_paginated(
         self,
         params: PaginationParams,

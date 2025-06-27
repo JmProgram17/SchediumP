@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { ProgramList, ProgramForm, ProgramDetail } from '@/features/program/components'
 import { Program } from '@/features/program/types'
 
-export function ProgramsPage() {
+function ProgramsPage() {
   const [showForm, setShowForm] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
@@ -55,7 +55,7 @@ export function ProgramsPage() {
 
       {showDetail && selectedProgram && (
         <ProgramDetail
-          programId={selectedProgram.id}
+          programId={selectedProgram.program_id}
           onBack={handleDetailClose}
           onEdit={() => {
             setShowDetail(false)
@@ -66,3 +66,5 @@ export function ProgramsPage() {
     </div>
   )
 }
+
+export default memo(ProgramsPage)

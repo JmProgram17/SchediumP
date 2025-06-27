@@ -33,6 +33,7 @@ export function InstructorsPage() {
   }
 
   const handleFormSuccess = () => {
+    console.log('🎉 [INSTRUCTORS PAGE] Form success called, closing modal')
     setShowForm(false)
     setSelectedInstructor(null)
   }
@@ -55,7 +56,7 @@ export function InstructorsPage() {
 
       {showDetail && selectedInstructor && (
         <InstructorDetail
-          instructorId={selectedInstructor.id}
+          instructorId={selectedInstructor.instructor_id}
           onBack={handleDetailClose}
           onEdit={() => {
             setShowDetail(false)

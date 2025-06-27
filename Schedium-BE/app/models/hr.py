@@ -24,8 +24,10 @@ class Department(Base, TimeStampMixin):
     name = Column(String(100), nullable=False, index=True)
     phone_number = Column(String(20))
     email = Column(String(100), index=True)
+    coordinator_id = Column(Integer, ForeignKey("user.user_id", ondelete="RESTRICT"), nullable=True, index=True)
 
     # Relationships
+    coordinator = relationship("User", foreign_keys=[coordinator_id])
     programs = relationship("Program", back_populates="department")
     instructors = relationship("Instructor", back_populates="department")
     classrooms = relationship("DepartmentClassroom", back_populates="department")
@@ -66,10 +68,10 @@ class Instructor(Base, TimeStampMixin):
     email = Column(String(100), nullable=False, unique=True, index=True)
     hour_count = Column(DECIMAL(10, 2), default=0, comment="Total assigned hours")  # type: ignore[var-annotated]
     contract_id = Column(
-        Integer, ForeignKey("contract.contract_id", ondelete="SET NULL"), index=True
+        Integer, ForeignKey("contract.contract_id", ondelete="RESTRICT"), nullable=False, index=True
     )
     department_id = Column(
-        Integer, ForeignKey("department.department_id", ondelete="SET NULL"), index=True
+        Integer, ForeignKey("department.department_id", ondelete="RESTRICT"), nullable=False, index=True
     )
     active = Column(Boolean, default=True, nullable=False)
 

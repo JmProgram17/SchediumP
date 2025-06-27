@@ -1,32 +1,28 @@
 /**
- * ClassroomForm Component - Professional form following Student pattern
- * Implements create/edit functionality with Zod validation and accessibility
+ * ClassroomForm Component - Clean modal form for classroom management
+ * Implements create/edit functionality with Zod validation and proper TypeScript types
  */
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Save, AlertCircle, Plus, Trash2 } from 'lucide-react'
+import { X, Save } from 'lucide-react'
 
 import { Button } from '@/design-system/components/Button'
 import { Input } from '@/design-system/components/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/design-system/components/Card'
 import { LoadingSpinner } from '@/design-system/components/LoadingSpinner'
 import { useCreateClassroom, useUpdateClassroom } from '../hooks'
-import { Classroom, ClassroomStatus, ClassroomType } from '../types'
+import { Classroom, ClassroomType, CreateClassroomDTO } from '../types'
 
-// Validation schema
+// Validation schema matching the CreateClassroomDTO interface
 const classroomSchema = z.object({
-  code: z.string().min(2).max(10).regex(/^[A-Z0-9-]+$/),
-  name: z.string().min(2).max(100),
-  capacity: z.number().min(1).max(500),
-  building: z.string().min(1).max(50),
-  floor: z.number().int().min(-5).max(50),
-  equipment: z.array(z.string().min(1)).optional(),
-  type: z.nativeEnum(ClassroomType),
-  status: z.nativeEnum(ClassroomStatus)
+  room_number: z.string().min(1, 'El número de aula es requerido').max(10, 'Máximo 10 caracteres'),
+  capacity: z.number().min(1, 'La capacidad debe ser mayor a 0').max(500, 'Capacidad máxima 500'),
+  campus_id: z.number().min(1, 'El ID del campus es requerido'),
+  classroom_type: z.string().min(1, 'El tipo de aula es requerido')
 })
 
 type ClassroomFormData = z.infer<typeof classroomSchema>
@@ -49,58 +45,46 @@ export const ClassroomForm: React.FC<ClassroomFormProps> = ({
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid, isDirty },
+    formState: { errors, isValid },
     setValue,
-    control,
-    watch
+    reset
   } = useForm<ClassroomFormData>({
     resolver: zodResolver(classroomSchema),
     mode: 'onChange',
     defaultValues: {
-      status: ClassroomStatus.ACTIVE,
-      type: ClassroomType.AULA_TEORICA,
+      room_number: '',
       capacity: 30,
-      floor: 1,
-      equipment: []
+      campus_id: 1,
+      classroom_type: ClassroomType.AULA_TEORICA
     }
   })
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'equipment'
-  })
-
-  const [newEquipment, setNewEquipment] = useState('')
 
   // Load classroom data for editing
   useEffect(() => {
     if (classroom) {
-      Object.entries(classroom).forEach(([key, value]) => {
-        if (key === 'equipment' && Array.isArray(value)) {
-          setValue('equipment', value)
-        } else {
-          setValue(key as keyof ClassroomFormData, value as any)
-        }
-      })
+      setValue('room_number', classroom.room_number)
+      setValue('capacity', classroom.capacity)
+      setValue('campus_id', classroom.campus_id)
+      setValue('classroom_type', classroom.classroom_type)
+    } else {
+      reset()
     }
-  }, [classroom, setValue])
-
-  const handleAddEquipment = () => {
-    if (newEquipment.trim()) {
-      append(newEquipment.trim())
-      setNewEquipment('')
-    }
-  }
+  }, [classroom, setValue, reset])
 
   const onSubmit = async (data: ClassroomFormData) => {
     try {
-      const submitData = {
-        ...data,
-        equipment: data.equipment?.filter(item => item.trim().length > 0) || []
+      const submitData: CreateClassroomDTO = {
+        room_number: data.room_number,
+        capacity: data.capacity,
+        campus_id: data.campus_id,
+        classroom_type: data.classroom_type
       }
 
       if (isEditing && classroom) {
-        await updateClassroom.mutateAsync({ id: classroom.id, data: submitData })
+        await updateClassroom.mutateAsync({ 
+          id: classroom.classroom_id.toString(), 
+          data: submitData 
+        })
       } else {
         await createClassroom.mutateAsync(submitData)
       }
@@ -142,50 +126,14 @@ export const ClassroomForm: React.FC<ClassroomFormProps> = ({
                 {/* Basic Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
-                    label="Código del Aula *"
-                    {...register('code')}
-                    error={errors.code?.message}
+                    label="Número de Aula *"
+                    {...register('room_number')}
+                    error={errors.room_number?.message}
                     disabled={isLoading}
                     maxLength={10}
                     placeholder="A101, LAB-01, etc."
-                    className="uppercase"
                   />
 
-                  <Input
-                    label="Nombre del Aula *"
-                    {...register('name')}
-                    error={errors.name?.message}
-                    disabled={isLoading}
-                    maxLength={100}
-                    placeholder="Laboratorio de Física"
-                  />
-                </div>
-
-                {/* Location Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Edificio *"
-                    {...register('building')}
-                    error={errors.building?.message}
-                    disabled={isLoading}
-                    maxLength={50}
-                    placeholder="Edificio Principal"
-                  />
-
-                  <Input
-                    label="Piso *"
-                    type="number"
-                    {...register('floor', { valueAsNumber: true })}
-                    error={errors.floor?.message}
-                    disabled={isLoading}
-                    min={-5}
-                    max={50}
-                    placeholder="1"
-                  />
-                </div>
-
-                {/* Capacity and Type */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input
                     label="Capacidad *"
                     type="number"
@@ -196,14 +144,30 @@ export const ClassroomForm: React.FC<ClassroomFormProps> = ({
                     max={500}
                     placeholder="30"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="ID del Campus *"
+                    type="number"
+                    {...register('campus_id', { valueAsNumber: true })}
+                    error={errors.campus_id?.message}
+                    disabled={isLoading}
+                    min={1}
+                    placeholder="1"
+                  />
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tipo de Aula *
                     </label>
                     <select
-                      {...register('type')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      {...register('classroom_type')}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.classroom_type 
+                          ? 'border-red-300 focus:ring-red-500' 
+                          : 'border-gray-300'
+                      }`}
                       disabled={isLoading}
                     >
                       <option value={ClassroomType.AULA_TEORICA}>Aula Teórica</option>
@@ -211,88 +175,30 @@ export const ClassroomForm: React.FC<ClassroomFormProps> = ({
                       <option value={ClassroomType.TALLER}>Taller</option>
                       <option value={ClassroomType.AUDITORIO}>Auditorio</option>
                     </select>
+                    {errors.classroom_type && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.classroom_type.message}
+                      </p>
+                    )}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Estado *
-                    </label>
-                    <select
-                      {...register('status')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isLoading}
-                    >
-                      <option value={ClassroomStatus.ACTIVE}>Activa</option>
-                      <option value={ClassroomStatus.INACTIVE}>Inactiva</option>
-                      <option value={ClassroomStatus.MAINTENANCE}>Mantenimiento</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Equipment Section */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Equipamiento
-                  </label>
-                  
-                  {/* Add new equipment */}
-                  <div className="flex gap-2 mb-3">
-                    <Input
-                      value={newEquipment}
-                      onChange={(e) => setNewEquipment(e.target.value)}
-                      placeholder="Agregar equipamiento..."
-                      disabled={isLoading}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleAddEquipment()
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddEquipment}
-                      disabled={!newEquipment.trim() || isLoading}
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Equipment list */}
-                  {fields.length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {fields.map((field, index) => (
-                        <div key={field.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                          <span className="flex-1 text-sm">{watch(`equipment.${index}`)}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => remove(index)}
-                            disabled={isLoading}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {fields.length === 0 && (
-                    <p className="text-sm text-gray-500 italic">
-                      No hay equipamiento registrado
-                    </p>
-                  )}
                 </div>
 
                 {/* Form Actions */}
                 <div className="flex items-center justify-end gap-3 pt-6 border-t">
-                  <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={onClose} 
+                    disabled={isLoading}
+                  >
                     Cancelar
                   </Button>
                   
-                  <Button type="submit" disabled={!isValid || isLoading} className="min-w-[120px]">
+                  <Button 
+                    type="submit" 
+                    disabled={!isValid || isLoading} 
+                    className="min-w-[120px]"
+                  >
                     {isLoading ? (
                       <LoadingSpinner size="sm" />
                     ) : (

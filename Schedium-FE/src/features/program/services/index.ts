@@ -15,7 +15,7 @@ import {
 } from '../types'
 
 export class ProgramService extends BaseApiService {
-  protected baseUrl = '/api/v1'
+  protected baseUrl = ''
   private readonly endpoint = '/academic/programs'
 
   /**
@@ -112,9 +112,6 @@ export class ProgramService extends BaseApiService {
     }
     if (sanitized.code) {
       sanitized.code = sanitized.code.trim().toUpperCase().replace(/[<>]/g, '')
-    }
-    if (sanitized.description) {
-      sanitized.description = sanitized.description.trim().replace(/[<>]/g, '')
     }
     if (sanitized.department) {
       sanitized.department = sanitized.department.trim().replace(/[<>]/g, '')

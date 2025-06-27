@@ -320,3 +320,74 @@ export interface ScheduleError extends ApiError {
   field?: keyof ScheduleEntry
   conflictId?: string
 }
+
+// Additional types for simplified scheduling
+export interface TimeBlock {
+  time_block_id: string
+  start_time: string
+  end_time: string
+  duration_minutes: number
+}
+
+export interface Day {
+  day_id: number
+  name: string
+}
+
+export interface DayTimeBlock {
+  day_time_block_id: string
+  day_id: number
+  time_block_id: string
+  day?: Day
+  time_block?: TimeBlock
+}
+
+export interface Schedule {
+  schedule_id: string
+  name: string
+  start_time: string
+  end_time: string
+}
+
+export interface Quarter {
+  quarter_id: string
+  name: string
+  start_date: string
+  end_date: string
+}
+
+export interface ClassSchedule extends BaseEntity {
+  class_schedule_id: string
+  subject: string
+  quarter_id: string
+  day_time_block_id: string
+  group_id: string
+  instructor_id: string
+  classroom_id: string
+  quarter?: Quarter
+  day_time_block?: DayTimeBlock
+  group?: StudentGroup
+  instructor?: any
+  classroom?: any
+}
+
+export interface StudentGroup extends BaseEntity {
+  group_id: string
+  group_number: number
+  program_id: string
+  start_date: string
+  end_date: string
+  capacity: number
+  schedule_id: string
+  active: boolean
+  code?: string // For display purposes
+  program?: {
+    program_id: string
+    name: string
+    code: string
+  }
+  schedule?: Schedule
+}
+
+// Group type alias for backwards compatibility
+export type Group = StudentGroup

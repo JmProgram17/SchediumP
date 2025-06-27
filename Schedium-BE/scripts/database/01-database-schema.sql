@@ -90,8 +90,6 @@ CREATE TABLE chain (
 CREATE TABLE nomenclature (
     nomenclature_id INT AUTO_INCREMENT PRIMARY KEY,
     code            VARCHAR(20) NOT NULL COMMENT 'Abbreviation or short code for programs',
-    description     VARCHAR(255) COMMENT 'Optional description of this nomenclature code',
-    active          BOOLEAN DEFAULT TRUE,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -106,6 +104,7 @@ CREATE TABLE program (
     chain_id        INT,
     department_id   INT,
     level_id        INT,
+    active          BOOLEAN DEFAULT TRUE NOT NULL,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     

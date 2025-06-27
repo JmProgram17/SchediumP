@@ -1,5 +1,6 @@
-import { Icon, Button } from '@/design-system/components'
-import { useTheme } from '@/design-system/components'
+import { Menu, Bell, Sun, Moon } from 'lucide-react'
+import { cn } from '@/utils/cn'
+import { useIsDark, useTheme } from '@/design-system/themes/ThemeProvider'
 import { UserDropdown } from './UserDropdown'
 
 interface HeaderProps {
@@ -8,53 +9,74 @@ interface HeaderProps {
   onToggleMobileSidebar: () => void
 }
 
-export function Header({ sidebarOpen, onToggleSidebar, onToggleMobileSidebar }: HeaderProps) {
-  const { theme, toggleTheme } = useTheme()
+export function Header({ onToggleMobileSidebar }: HeaderProps) {
+  const { toggleTheme } = useTheme()
+  const isDark = useIsDark()
 
   return (
-    <header className="sticky top-0 z-20 h-16 border-b bg-card px-4 md:px-6">
-      <div className="flex h-full items-center justify-between">
-        {/* Left side */}
-        <div className="flex items-center gap-2">
+    <header className={cn(
+      'sticky top-0 z-40 h-16 border-b transition-colors',
+      isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
+    )}>
+      <div className="flex h-full items-center justify-between px-4">
+        {/* Left side - Logo and Mobile Menu */}
+        <div className="flex items-center gap-4">
           {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={onToggleMobileSidebar}
-            className="lg:hidden"
+            className={cn(
+              'rounded-lg p-2 transition-colors lg:hidden',
+              isDark 
+                ? 'hover:bg-gray-800 text-gray-300' 
+                : 'hover:bg-gray-100 text-gray-600'
+            )}
+            aria-label="Open mobile menu"
           >
-            <Icon name="Menu" size="sm" />
-          </Button>
+            <Menu size={20} />
+          </button>
 
-          {/* Desktop sidebar toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleSidebar}
-            className="hidden lg:flex"
-          >
-            <Icon name={sidebarOpen ? 'MenuOpen' : 'Menu'} size="sm" />
-          </Button>
+          {/* Schedium Logo */}
+          <div className="flex items-center">
+            <img 
+              src={isDark ? '/images/Schedium-Blanco.svg' : '/images/Schedium-Negro.svg'}
+              alt="Schedium Logo"
+              className="h-8 object-contain"
+            />
+          </div>
         </div>
 
-        {/* Right side */}
+        {/* Right side - Actions */}
         <div className="flex items-center gap-2">
-          {/* Theme toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
+          {/* Theme Toggle */}
+          <button
             onClick={toggleTheme}
+            className={cn(
+              'rounded-lg p-2 transition-colors',
+              isDark 
+                ? 'hover:bg-gray-800 text-gray-300 hover:text-white' 
+                : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+            )}
             aria-label="Toggle theme"
           >
-            <Icon name={theme === 'light' ? 'DarkMode' : 'LightMode'} size="sm" />
-          </Button>
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
 
           {/* Notifications */}
-          <Button variant="ghost" size="sm" aria-label="Notifications">
-            <Icon name="Notifications" size="sm" />
-          </Button>
+          <button
+            className={cn(
+              'rounded-lg p-2 transition-colors relative',
+              isDark 
+                ? 'hover:bg-gray-800 text-gray-300 hover:text-white' 
+                : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+            )}
+            aria-label="Notifications"
+          >
+            <Bell size={20} />
+            {/* Notification badge */}
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+          </button>
 
-          {/* User menu */}
+          {/* User Menu */}
           <UserDropdown />
         </div>
       </div>

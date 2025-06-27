@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { Card, CardContent, Typography, Button, Icon } from '@/design-system/components'
-import { MainLayout } from '@/layouts/MainLayout'
 import { ROUTES } from '@/constants/routes.constants'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '@/stores/auth.store'
@@ -110,7 +109,7 @@ export function DashboardPage() {
   const { user } = useAuthStore()
 
   return (
-    <MainLayout>
+    <>
       {/* Welcome Section */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -271,6 +270,6 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </motion.div>
-    </MainLayout>
+    </>
   )
 }

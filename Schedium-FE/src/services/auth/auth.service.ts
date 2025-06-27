@@ -22,14 +22,13 @@ class AuthService {
   async login(credentials: LoginRequest): Promise<{ tokens: LoginResponse; user: User }> {
     console.log('🔐 [AUTH] Attempting login with credentials:', { email: credentials.email, password: '***' })
     
-    // Step 1: Login to get tokens using form-data with axios directly (avoid interceptors)
-    const formData = new URLSearchParams()
-    formData.append('username', credentials.email)
-    formData.append('password', credentials.password)
-    
-    const response = await cleanAxios.post(`${API_CONFIG.BACKEND_URL}/api/v1/auth/login`, formData, {
+    // Step 1: Login to get tokens using JSON endpoint
+    const response = await cleanAxios.post(`${API_CONFIG.BACKEND_URL}/api/v1/auth/login-json`, {
+      email: credentials.email,
+      password: credentials.password
+    }, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/json'
       }
     })
     

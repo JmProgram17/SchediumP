@@ -152,13 +152,13 @@ class ClassSchedule(Base, TimeStampMixin):
     instructor_id = Column(
         Integer,
         ForeignKey("instructor.instructor_id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     classroom_id = Column(
         Integer,
         ForeignKey("classroom.classroom_id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 

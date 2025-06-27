@@ -130,7 +130,7 @@ export const ProgramDetail: React.FC<ProgramDetailProps> = ({
               {program.name}
             </h1>
             <p className="text-gray-600">
-              {program.code} • {program.department}
+              {program.nomenclature?.code || 'N/A'} • {program.department?.name || 'Sin departamento'}
             </p>
           </div>
         </div>
@@ -156,12 +156,12 @@ export const ProgramDetail: React.FC<ProgramDetailProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Código</label>
-                  <p className="text-lg font-semibold">{program.code}</p>
+                  <p className="text-lg font-semibold">{program.nomenclature?.code || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Estado</label>
                   <div className="mt-1">
-                    {getStatusBadge(program.status)}
+                    <Badge variant="success" size="sm">ACTIVO</Badge>
                   </div>
                 </div>
               </div>
@@ -171,16 +171,10 @@ export const ProgramDetail: React.FC<ProgramDetailProps> = ({
                 <p className="text-lg">{program.name}</p>
               </div>
 
-              {program.description && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Descripción</label>
-                  <p className="text-gray-900 leading-relaxed">{program.description}</p>
-                </div>
-              )}
 
               <div>
                 <label className="text-sm font-medium text-gray-500">Departamento</label>
-                <p className="text-lg">{program.department}</p>
+                <p className="text-lg">{program.department?.name || 'Sin departamento'}</p>
               </div>
             </CardContent>
           </Card>
@@ -198,21 +192,21 @@ export const ProgramDetail: React.FC<ProgramDetailProps> = ({
                 <div>
                   <label className="text-sm font-medium text-gray-500">Nivel</label>
                   <div className="mt-1">
-                    {getLevelBadge(program.level)}
+                    <Badge variant="outline" size="sm">{program.level?.study_type || 'N/A'}</Badge>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Modalidad</label>
+                  <label className="text-sm font-medium text-gray-500">Cadena</label>
                   <div className="flex items-center gap-2 mt-1">
-                    {getModalityIcon(program.modality)}
-                    <span className="font-medium">{program.modality}</span>
+                    <Monitor className="w-4 h-4 text-gray-400" />
+                    <span className="font-medium">{program.chain?.name || 'N/A'}</span>
                   </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Duración</label>
                   <div className="flex items-center gap-2 mt-1">
                     <Clock className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium">{program.duration} meses</span>
+                    <span className="font-medium">{program.level?.duration || 0} meses</span>
                   </div>
                 </div>
               </div>
@@ -234,13 +228,13 @@ export const ProgramDetail: React.FC<ProgramDetailProps> = ({
               <div>
                 <label className="text-sm font-medium text-gray-500">Creado</label>
                 <p className="text-sm">
-                  {new Date(program.createdAt).toLocaleDateString()}
+                  {new Date(program.created_at).toLocaleDateString()}
                 </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Última actualización</label>
                 <p className="text-sm">
-                  {new Date(program.updatedAt).toLocaleDateString()}
+                  {new Date(program.updated_at).toLocaleDateString()}
                 </p>
               </div>
             </CardContent>

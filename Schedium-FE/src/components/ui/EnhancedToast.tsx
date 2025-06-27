@@ -284,36 +284,41 @@ export const EnhancedToast: React.FC<EnhancedToastProps> = ({ toast, onDismiss }
 
 // Enhanced toast utilities
 export const enhancedToast = {
-  success: (_data: string | CustomToastData) => {
-    return hotToast.custom((t) => <EnhancedToast toast={t} onDismiss={hotToast.dismiss} />, {
+  success: (data: string | CustomToastData) => {
+    const toastData = typeof data === 'string' ? { title: data, variant: 'success' as const } : { ...data, variant: 'success' as const }
+    return hotToast.custom((t) => <EnhancedToast toast={{ ...t, message: toastData }} onDismiss={hotToast.dismiss} />, {
       duration: 4000,
       id: `success-${Date.now()}`
     })
   },
 
-  error: (_data: string | CustomToastData) => {
-    return hotToast.custom((t) => <EnhancedToast toast={t} onDismiss={hotToast.dismiss} />, {
+  error: (data: string | CustomToastData) => {
+    const toastData = typeof data === 'string' ? { title: data, variant: 'error' as const } : { ...data, variant: 'error' as const }
+    return hotToast.custom((t) => <EnhancedToast toast={{ ...t, message: toastData }} onDismiss={hotToast.dismiss} />, {
       duration: 6000,
       id: `error-${Date.now()}`
     })
   },
 
-  warning: (_data: string | CustomToastData) => {
-    return hotToast.custom((t) => <EnhancedToast toast={t} onDismiss={hotToast.dismiss} />, {
+  warning: (data: string | CustomToastData) => {
+    const toastData = typeof data === 'string' ? { title: data, variant: 'warning' as const } : { ...data, variant: 'warning' as const }
+    return hotToast.custom((t) => <EnhancedToast toast={{ ...t, message: toastData }} onDismiss={hotToast.dismiss} />, {
       duration: 5000,
       id: `warning-${Date.now()}`
     })
   },
 
-  info: (_data: string | CustomToastData) => {
-    return hotToast.custom((t) => <EnhancedToast toast={t} onDismiss={hotToast.dismiss} />, {
+  info: (data: string | CustomToastData) => {
+    const toastData = typeof data === 'string' ? { title: data, variant: 'info' as const } : { ...data, variant: 'info' as const }
+    return hotToast.custom((t) => <EnhancedToast toast={{ ...t, message: toastData }} onDismiss={hotToast.dismiss} />, {
       duration: 4000,
       id: `info-${Date.now()}`
     })
   },
 
-  loading: (_data: string | CustomToastData) => {
-    return hotToast.custom((t) => <EnhancedToast toast={t} onDismiss={hotToast.dismiss} />, {
+  loading: (data: string | CustomToastData) => {
+    const toastData = typeof data === 'string' ? { title: data, variant: 'loading' as const } : { ...data, variant: 'loading' as const }
+    return hotToast.custom((t) => <EnhancedToast toast={{ ...t, message: toastData }} onDismiss={hotToast.dismiss} />, {
       duration: Infinity,
       id: `loading-${Date.now()}`
     })

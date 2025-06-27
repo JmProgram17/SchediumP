@@ -25,29 +25,57 @@ def configure_cors(app: FastAPI) -> None:
     if settings.IS_DEVELOPMENT:
         origins.extend([
             "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:5173",
+            "http://localhost:5174",
             "http://localhost:8080",
             "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
             "http://127.0.0.1:8080",
         ])
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=[
-            "Authorization",
-            "Content-Type",
-            "X-Requested-With",
-            "X-Request-ID",
-            "X-API-Key",
-        ],
-        expose_headers=[
-            "X-Request-ID",
-            "X-RateLimit-Limit",
-            "X-RateLimit-Remaining",
-            "X-RateLimit-Reset",
-            "X-Total-Count",
-        ],
-        max_age=3600,  # 1 hour
-    )
+    # More permissive CORS for development
+    if settings.IS_DEVELOPMENT:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,  # Use specific origins with credentials
+            allow_credentials=True,
+            allow_methods=["*"],  # Allow all methods
+            allow_headers=["*"],  # Allow all headers
+            expose_headers=[
+                "X-Request-ID",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "X-RateLimit-Reset",
+                "X-Total-Count",
+            ],
+            max_age=3600,
+        )
+    else:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+            allow_headers=[
+                "Accept",
+                "Accept-Language", 
+                "Authorization",
+                "Cache-Control",
+                "Content-Language",
+                "Content-Type",
+                "X-API-Key",
+                "X-Request-ID",
+                "X-Requested-With"
+            ],
+            expose_headers=[
+                "X-Request-ID",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "X-RateLimit-Reset",
+                "X-Total-Count",
+            ],
+            max_age=3600,
+        )

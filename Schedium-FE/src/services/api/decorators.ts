@@ -424,8 +424,27 @@ export function withRetry(maxAttempts: number = 3, baseDelay: number = 1000) {
         } catch (error: any) {
           lastError = error
           
+          // Check all possible locations for error codes
+          const errorCode = error.error_code || 
+                           error.frontendError?.error_code || 
+                           error.context?.error_code ||
+                           error.response?.data?.error_code
+          
+          const statusCode = error.status || 
+                           error.response?.status || 
+                           error.frontendError?.status ||
+                           error.context?.status
+          
           // Don't retry on certain errors
-          if (error.error_code === 'VALIDATION_ERROR' || error.error_code === 'UNAUTHORIZED') {
+          if (errorCode === 'VALIDATION_ERROR' || 
+              errorCode === 'UNAUTHORIZED' || 
+              errorCode === 'PROGRAM_ALREADY_EXISTS' ||
+              errorCode === 'CONFLICT' ||
+              errorCode === 'FORBIDDEN' ||
+              statusCode === 409 || // Conflict errors
+              statusCode === 400 || // Bad Request errors
+              statusCode === 403 || // Forbidden errors
+              statusCode === 422) { // Unprocessable Entity errors
             throw error
           }
 

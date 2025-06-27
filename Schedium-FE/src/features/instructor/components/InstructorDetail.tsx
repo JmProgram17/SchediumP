@@ -143,10 +143,10 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
           )}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {instructor.firstName} {instructor.lastName}
+              {instructor.first_name} {instructor.last_name}
             </h1>
             <p className="text-gray-600">
-              {instructor.specialization} • {instructor.department}
+              {instructor.department?.name || 'Sin coordinación'} • Instructor
             </p>
           </div>
         </div>
@@ -173,9 +173,9 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
                 <div>
                   <label className="text-sm font-medium text-gray-500">Documento</label>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="font-medium">{instructor.documentNumber}</span>
+                    <span className="font-medium">{instructor.phone_number || 'N/A'}</span>
                     <Badge variant="outline" size="sm">
-                      {instructor.documentType}
+                      CC
                     </Badge>
                   </div>
                 </div>
@@ -183,7 +183,9 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
                 <div>
                   <label className="text-sm font-medium text-gray-500">Estado</label>
                   <div className="mt-1">
-                    {getStatusBadge(instructor.status)}
+                    <Badge variant={instructor.active ? 'success' : 'secondary'} size="sm">
+                      {instructor.active ? 'ACTIVO' : 'INACTIVO'}
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -197,12 +199,12 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
                   </div>
                 </div>
                 
-                {instructor.phone && (
+                {instructor.phone_number && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Teléfono</label>
                     <div className="flex items-center gap-2 mt-1">
                       <Phone className="w-4 h-4 text-gray-400" />
-                      <span>{instructor.phone}</span>
+                      <span>{instructor.phone_number}</span>
                     </div>
                   </div>
                 )}
@@ -221,18 +223,18 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Especialización</label>
+                  <label className="text-sm font-medium text-gray-500">Coordinación</label>
                   <div className="flex items-center gap-2 mt-1">
-                    <Award className="w-4 h-4 text-gray-400" />
-                    <span>{instructor.specialization}</span>
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <span>{instructor.department?.name || 'Sin coordinación'}</span>
                   </div>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Departamento</label>
+                  <label className="text-sm font-medium text-gray-500">Horas Asignadas</label>
                   <div className="flex items-center gap-2 mt-1">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span>{instructor.department}</span>
+                    <Award className="w-4 h-4 text-gray-400" />
+                    <span>{instructor.hour_count || 0} horas</span>
                   </div>
                 </div>
               </div>
@@ -241,7 +243,9 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
                 <div>
                   <label className="text-sm font-medium text-gray-500">Tipo de Contrato</label>
                   <div className="mt-1">
-                    {getContractTypeBadge(instructor.contractType)}
+                    <Badge variant="outline" size="sm">
+                      {instructor.contract?.contract_type || 'Sin contrato'}
+                    </Badge>
                   </div>
                 </div>
                 
@@ -249,7 +253,7 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
                   <label className="text-sm font-medium text-gray-500">Fecha de Contratación</label>
                   <div className="flex items-center gap-2 mt-1">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{formatDate(instructor.hireDate)}</span>
+                    <span>{formatDate(instructor.created_at)}</span>
                   </div>
                 </div>
               </div>
@@ -271,21 +275,21 @@ export const InstructorDetail: React.FC<InstructorDetailProps> = ({
               <div>
                 <label className="text-sm font-medium text-gray-500">ID del Sistema</label>
                 <p className="text-sm font-mono bg-gray-50 p-2 rounded mt-1">
-                  {instructor.id}
+                  {instructor.instructor_id}
                 </p>
               </div>
               
               <div>
                 <label className="text-sm font-medium text-gray-500">Fecha de Registro</label>
                 <p className="text-sm mt-1">
-                  {formatDate(instructor.createdAt)}
+                  {formatDate(instructor.created_at)}
                 </p>
               </div>
               
               <div>
                 <label className="text-sm font-medium text-gray-500">Última Actualización</label>
                 <p className="text-sm mt-1">
-                  {formatDate(instructor.updatedAt)}
+                  {formatDate(instructor.updated_at)}
                 </p>
               </div>
             </CardContent>

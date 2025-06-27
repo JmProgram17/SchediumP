@@ -15,7 +15,7 @@ import {
 } from '../types'
 
 export class ClassroomService extends BaseApiService {
-  protected baseUrl = '/api/v1'
+  protected baseUrl = ''
   private readonly endpoint = '/infrastructure/classrooms'
 
   /**
@@ -27,7 +27,10 @@ export class ClassroomService extends BaseApiService {
     if (query.page) params.append('page', query.page.toString())
     if (query.limit) params.append('limit', query.limit.toString())
     if (query.search) params.append('search', query.search)
-    if (query.status) params.append('status', query.status)
+    if (query.campus_id) params.append('campus_id', query.campus_id.toString())
+    if (query.classroom_type) params.append('classroom_type', query.classroom_type)
+    if (query.min_capacity) params.append('min_capacity', query.min_capacity.toString())
+    if (query.max_capacity) params.append('max_capacity', query.max_capacity.toString())
     if (query.sortBy) params.append('sort_by', query.sortBy)
     if (query.sortOrder) params.append('sort_order', query.sortOrder)
 
@@ -107,23 +110,14 @@ export class ClassroomService extends BaseApiService {
   private sanitizeClassroomData(data: CreateClassroomDTO | UpdateClassroomDTO): CreateClassroomDTO | UpdateClassroomDTO {
     const sanitized = { ...data }
 
-    if (sanitized.name) {
-      sanitized.name = sanitized.name.trim().replace(/[<>]/g, '')
+    if (sanitized.room_number) {
+      sanitized.room_number = sanitized.room_number.trim().replace(/[<>]/g, '')
     }
-    if (sanitized.code) {
-      sanitized.code = sanitized.code.trim().toUpperCase().replace(/[<>]/g, '')
-    }
-    if (sanitized.building) {
-      sanitized.building = sanitized.building.trim().replace(/[<>]/g, '')
+    if (sanitized.classroom_type) {
+      sanitized.classroom_type = sanitized.classroom_type.trim().replace(/[<>]/g, '')
     }
     if (sanitized.capacity) {
       sanitized.capacity = Math.max(1, Math.floor(sanitized.capacity))
-    }
-    if (sanitized.floor) {
-      sanitized.floor = Math.floor(sanitized.floor)
-    }
-    if (sanitized.equipment) {
-      sanitized.equipment = sanitized.equipment.map(item => item.trim()).filter(item => item.length > 0)
     }
 
     return sanitized

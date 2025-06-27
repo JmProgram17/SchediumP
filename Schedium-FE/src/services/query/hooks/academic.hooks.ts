@@ -231,7 +231,6 @@ export const usePrograms = (filters: QueryFilters = {}) => {
     queryKey: queryKeys.academic.programs.list(filters),
     queryFn: async (): Promise<PaginatedResponse<Program>> => {
       const response = await academicApi.getPaginated<Program>('/programs', filters, {
-        adapter: 'pagination',
         context: { module: 'academic', operation: 'list_programs' }
       })
       return response as PaginatedResponse<Program>
@@ -431,6 +430,166 @@ export const useUpdateEnrollmentStatus = () => {
         queryClient.invalidateQueries({ queryKey: queryKeys.academic.enrollments.byCourse(data.course_id) })
       }
     }
+  })
+}
+
+// ===== NOMENCLATURES HOOKS =====
+
+/**
+ * Hook to get nomenclatures list
+ */
+export const useNomenclatures = (filters: QueryFilters = {}) => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'nomenclatures', filters],
+    queryFn: async (): Promise<PaginatedResponse<any>> => {
+      const response = await academicApi.getPaginated<any>('/nomenclatures', filters, {
+        adapter: 'pagination',
+        context: { module: 'academic', operation: 'list_nomenclatures' }
+      })
+      return response as PaginatedResponse<any>
+    },
+    ...CACHE_CONFIG.REFERENCE,
+  })
+}
+
+/**
+ * Hook to get all nomenclatures (for dropdowns)
+ */
+export const useAllNomenclatures = () => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'nomenclatures', 'all'],
+    queryFn: async (): Promise<any[]> => {
+      const response = await academicApi.get<any[]>('/nomenclatures/all', {
+        cache: 60 * 60 * 1000,
+        context: { module: 'academic', operation: 'all_nomenclatures' }
+      })
+      return response.data!
+    },
+    ...CACHE_CONFIG.REFERENCE,
+    staleTime: 60 * 60 * 1000,
+  })
+}
+
+/**
+ * Create nomenclature mutation
+ */
+export const useCreateNomenclature = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationKey: ['academic', 'nomenclatures', 'create'],
+    mutationFn: async (data: { code: string }): Promise<any> => {
+      const response = await academicApi.post<any>('/nomenclatures', data, {
+        context: { module: 'academic', operation: 'create_nomenclature' }
+      })
+      return response.data!
+    },
+    onSuccess: (newNomenclature) => {
+      // Invalidate nomenclatures list queries
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.academic.all(), 'nomenclatures'] })
+      
+      // Update cache with new nomenclature
+      queryClient.setQueryData(
+        [...queryKeys.academic.all(), 'nomenclatures', 'all'],
+        (old: any[] | undefined) => {
+          if (!old) return [newNomenclature]
+          return [...old, newNomenclature]
+        }
+      )
+    }
+  })
+}
+
+// ===== CHAINS HOOKS =====
+
+/**
+ * Hook to get chains list
+ */
+export const useChains = (filters: QueryFilters = {}) => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'chains', filters],
+    queryFn: async (): Promise<PaginatedResponse<any>> => {
+      const response = await academicApi.getPaginated<any>('/chains', filters, {
+        adapter: 'pagination',
+        context: { module: 'academic', operation: 'list_chains' }
+      })
+      return response as PaginatedResponse<any>
+    },
+    ...CACHE_CONFIG.REFERENCE,
+  })
+}
+
+/**
+ * Hook to get all chains (for dropdowns)
+ */
+export const useAllChains = () => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'chains', 'all'],
+    queryFn: async (): Promise<any[]> => {
+      const response = await academicApi.get<any[]>('/chains/all', {
+        cache: 60 * 60 * 1000,
+        context: { module: 'academic', operation: 'all_chains' }
+      })
+      return response.data!
+    },
+    ...CACHE_CONFIG.REFERENCE,
+    staleTime: 60 * 60 * 1000,
+  })
+}
+
+// ===== LEVELS HOOKS =====
+
+/**
+ * Hook to get levels list
+ */
+export const useLevels = (filters: QueryFilters = {}) => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'levels', filters],
+    queryFn: async (): Promise<PaginatedResponse<any>> => {
+      const response = await academicApi.getPaginated<any>('/levels', filters, {
+        adapter: 'pagination',
+        context: { module: 'academic', operation: 'list_levels' }
+      })
+      return response as PaginatedResponse<any>
+    },
+    ...CACHE_CONFIG.REFERENCE,
+  })
+}
+
+/**
+ * Hook to get all levels (for dropdowns)
+ */
+export const useAllLevels = () => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'levels', 'all'],
+    queryFn: async (): Promise<any[]> => {
+      const response = await academicApi.get<any[]>('/levels/all', {
+        cache: 60 * 60 * 1000,
+        context: { module: 'academic', operation: 'all_levels' }
+      })
+      return response.data!
+    },
+    ...CACHE_CONFIG.REFERENCE,
+    staleTime: 60 * 60 * 1000,
+  })
+}
+
+// ===== STUDENT GROUPS HOOKS =====
+
+/**
+ * Hook to get student groups (fichas) list using correct endpoint
+ */
+export const useStudentGroups = (filters: QueryFilters = {}) => {
+  return useQuery({
+    queryKey: [...queryKeys.academic.all(), 'groups', filters],
+    queryFn: async (): Promise<PaginatedResponse<any>> => {
+      const response = await academicApi.getPaginated<any>('/groups', filters, {
+        context: { module: 'academic', operation: 'list_groups' }
+      })
+      return response as PaginatedResponse<any>
+    },
+    ...CACHE_CONFIG.ACADEMIC,
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
   })
 }
 

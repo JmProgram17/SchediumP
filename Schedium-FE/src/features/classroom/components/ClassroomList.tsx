@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { 
   Search, 
   Plus, 
@@ -14,16 +14,14 @@ import {
   Edit3,
   Trash2,
   Eye,
-  CheckSquare,
   Square,
   Building,
-  Users,
-  MapPin
+  Users
 } from 'lucide-react'
 
 import { Button } from '@/design-system/components/Button'
 import { Input } from '@/design-system/components/Input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/design-system/components/Card'
+import { Card, CardContent } from '@/design-system/components/Card'
 import { Badge } from '@/design-system/components/Badge'
 import { LoadingSpinner } from '@/design-system/components/LoadingSpinner'
 import { 
@@ -82,8 +80,8 @@ export const ClassroomList: React.FC<ClassroomListProps> = ({
   }
 
   const handleDelete = (classroom: Classroom) => {
-    if (window.confirm(`¿Está seguro de eliminar el aula ${classroom.name}?`)) {
-      deleteClassroom.mutate(classroom.id)
+    if (window.confirm(`¿Está seguro de eliminar el aula ${classroom.room_number}?`)) {
+      deleteClassroom.mutate(classroom.classroom_id.toString())
     }
   }
 
@@ -210,7 +208,7 @@ export const ClassroomList: React.FC<ClassroomListProps> = ({
                 placeholder="Buscar por nombre, código o edificio..."
                 value={query.search}
                 onChange={(e) => handleSearch(e.target.value)}
-                leftIcon={Search}
+                leftIcon={<Search className="w-4 h-4" />}
               />
             </div>
             
@@ -275,25 +273,22 @@ export const ClassroomList: React.FC<ClassroomListProps> = ({
                         <Square className="w-4 h-4 text-gray-400" />
                       </td>
                       <td className="p-4">
-                        <span className="font-medium font-mono">{classroom.code}</span>
+                        <span className="font-medium font-mono">{classroom.room_number}</span>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-medium">{classroom.name}</span>
-                          {classroom.equipment && classroom.equipment.length > 0 && (
-                            <span className="text-sm text-gray-500">
-                              {classroom.equipment.slice(0, 2).join(', ')}
-                              {classroom.equipment.length > 2 && ` +${classroom.equipment.length - 2}`}
-                            </span>
-                          )}
+                          <span className="font-medium">Aula {classroom.room_number}</span>
+                          <span className="text-sm text-gray-500">
+                            Campus {classroom.campus_id}
+                          </span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <Building className="w-4 h-4 text-gray-400" />
                           <div className="flex flex-col">
-                            <span className="font-medium">{classroom.building}</span>
-                            <span className="text-sm text-gray-500">Piso {classroom.floor}</span>
+                            <span className="font-medium">Campus {classroom.campus_id}</span>
+                            <span className="text-sm text-gray-500">Capacidad: {classroom.capacity}</span>
                           </div>
                         </div>
                       </td>
@@ -304,10 +299,10 @@ export const ClassroomList: React.FC<ClassroomListProps> = ({
                         </div>
                       </td>
                       <td className="p-4">
-                        {getTypeBadge(classroom.type)}
+                        {getTypeBadge(classroom.classroom_type as ClassroomType)}
                       </td>
                       <td className="p-4">
-                        {getStatusBadge(classroom.status)}
+                        {getStatusBadge(ClassroomStatus.ACTIVE)}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">

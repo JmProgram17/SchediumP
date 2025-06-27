@@ -8,12 +8,9 @@ export const axiosClient: AxiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     'X-Requested-With': 'XMLHttpRequest',
-    'Accept': 'application/json',
-    'Cache-Control': 'no-cache',
-    // Add security headers
-    ...SECURITY_CONFIG.HEADERS
+    'Accept': 'application/json; charset=utf-8',
   },
   withCredentials: SECURITY_CONFIG.CORS.CREDENTIALS,
   maxBodyLength: SECURITY_CONFIG.API.MAX_REQUEST_SIZE,
@@ -26,7 +23,6 @@ console.log('🔧 [AXIOS] Client created with baseURL:', API_CONFIG.BASE_URL)
 const SECURITY_HEADERS = {
   'X-Requested-With': 'XMLHttpRequest',
   'Accept': 'application/json',
-  'Cache-Control': 'no-cache',
 } as const
 
 // Request interceptor

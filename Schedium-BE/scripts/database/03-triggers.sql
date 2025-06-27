@@ -42,22 +42,24 @@ BEGIN
     DECLARE campus_address VARCHAR(255);
     DECLARE error_message VARCHAR(500);
 
-    -- Verificar conflicto de INSTRUCTOR
-    SELECT COUNT(*) INTO conflict_count
-    FROM class_schedule cs
-    WHERE cs.day_time_block_id = NEW.day_time_block_id
-        AND cs.instructor_id = NEW.instructor_id
-        AND cs.quarter_id = NEW.quarter_id;
+    -- Verificar conflicto de INSTRUCTOR (solo si hay instructor asignado)
+    IF NEW.instructor_id IS NOT NULL THEN
+        SELECT COUNT(*) INTO conflict_count
+        FROM class_schedule cs
+        WHERE cs.day_time_block_id = NEW.day_time_block_id
+            AND cs.instructor_id = NEW.instructor_id
+            AND cs.quarter_id = NEW.quarter_id;
 
-    IF conflict_count > 0 THEN
-        SELECT first_name, last_name INTO instructor_fname, instructor_lname
-        FROM instructor
-        WHERE instructor_id = NEW.instructor_id;
+        IF conflict_count > 0 THEN
+            SELECT first_name, last_name INTO instructor_fname, instructor_lname
+            FROM instructor
+            WHERE instructor_id = NEW.instructor_id;
 
-        SET error_message = CONCAT('CONFLICTO INSTRUCTOR: ', instructor_fname, ' ',
-            instructor_lname, ' ya tiene una clase asignada en este horario y trimestre.');
+            SET error_message = CONCAT('CONFLICTO INSTRUCTOR: ', instructor_fname, ' ',
+                instructor_lname, ' ya tiene una clase asignada en este horario y trimestre.');
 
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+        END IF;
     END IF;
 
     -- Verificar conflicto de GRUPO
@@ -78,23 +80,25 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
     END IF;
 
-    -- Verificar conflicto de AULA
-    SELECT COUNT(*) INTO conflict_count
-    FROM class_schedule cs
-    WHERE cs.day_time_block_id = NEW.day_time_block_id
-        AND cs.classroom_id = NEW.classroom_id
-        AND cs.quarter_id = NEW.quarter_id;
+    -- Verificar conflicto de AULA (solo si hay aula asignada)
+    IF NEW.classroom_id IS NOT NULL THEN
+        SELECT COUNT(*) INTO conflict_count
+        FROM class_schedule cs
+        WHERE cs.day_time_block_id = NEW.day_time_block_id
+            AND cs.classroom_id = NEW.classroom_id
+            AND cs.quarter_id = NEW.quarter_id;
 
-    IF conflict_count > 0 THEN
-        SELECT c.room_number, cam.address INTO classroom_number_conflict, campus_address
-        FROM classroom c
-        INNER JOIN campus cam ON c.campus_id = cam.campus_id
-        WHERE c.classroom_id = NEW.classroom_id;
+        IF conflict_count > 0 THEN
+            SELECT c.room_number, cam.address INTO classroom_number_conflict, campus_address
+            FROM classroom c
+            INNER JOIN campus cam ON c.campus_id = cam.campus_id
+            WHERE c.classroom_id = NEW.classroom_id;
 
-        SET error_message = CONCAT('CONFLICTO AULA: El aula ', classroom_number_conflict,
-            ' en ', campus_address, ' ya está ocupada en este horario y trimestre.');
+            SET error_message = CONCAT('CONFLICTO AULA: El aula ', classroom_number_conflict,
+                ' en ', campus_address, ' ya está ocupada en este horario y trimestre.');
 
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+        END IF;
     END IF;
 END$$
 
@@ -110,16 +114,19 @@ BEGIN
     DECLARE class_duration_minutes INT DEFAULT 0;
     DECLARE class_duration_hours DECIMAL(10,2) DEFAULT 0;
 
-    SELECT COALESCE(tb.duration_minutes, 0) INTO class_duration_minutes
-    FROM day_time_block dtb
-    INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
-    WHERE dtb.day_time_block_id = NEW.day_time_block_id;
+    -- Solo actualizar horas si hay instructor asignado
+    IF NEW.instructor_id IS NOT NULL THEN
+        SELECT COALESCE(tb.duration_minutes, 0) INTO class_duration_minutes
+        FROM day_time_block dtb
+        INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
+        WHERE dtb.day_time_block_id = NEW.day_time_block_id;
 
-    SET class_duration_hours = class_duration_minutes / 60.0;
+        SET class_duration_hours = class_duration_minutes / 60.0;
 
-    UPDATE instructor
-    SET hour_count = hour_count + class_duration_hours
-    WHERE instructor_id = NEW.instructor_id;
+        UPDATE instructor
+        SET hour_count = hour_count + class_duration_hours
+        WHERE instructor_id = NEW.instructor_id;
+    END IF;
 END$$
 
 -- ===============================================
@@ -134,16 +141,19 @@ BEGIN
     DECLARE class_duration_minutes INT DEFAULT 0;
     DECLARE class_duration_hours DECIMAL(10,2) DEFAULT 0;
 
-    SELECT COALESCE(tb.duration_minutes, 0) INTO class_duration_minutes
-    FROM day_time_block dtb
-    INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
-    WHERE dtb.day_time_block_id = OLD.day_time_block_id;
+    -- Solo actualizar horas si había instructor asignado
+    IF OLD.instructor_id IS NOT NULL THEN
+        SELECT COALESCE(tb.duration_minutes, 0) INTO class_duration_minutes
+        FROM day_time_block dtb
+        INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
+        WHERE dtb.day_time_block_id = OLD.day_time_block_id;
 
-    SET class_duration_hours = class_duration_minutes / 60.0;
+        SET class_duration_hours = class_duration_minutes / 60.0;
 
-    UPDATE instructor
-    SET hour_count = GREATEST(0, hour_count - class_duration_hours)
-    WHERE instructor_id = OLD.instructor_id;
+        UPDATE instructor
+        SET hour_count = GREATEST(0, hour_count - class_duration_hours)
+        WHERE instructor_id = OLD.instructor_id;
+    END IF;
 END$$
 
 -- ===============================================
@@ -161,7 +171,8 @@ BEGIN
     DECLARE new_duration_hours DECIMAL(10,2) DEFAULT 0;
 
     -- Si cambió el instructor, ajustar horas en ambos instructores
-    IF OLD.instructor_id != NEW.instructor_id THEN
+    IF (OLD.instructor_id IS NOT NULL OR NEW.instructor_id IS NOT NULL) AND 
+       (OLD.instructor_id != NEW.instructor_id OR (OLD.instructor_id IS NULL AND NEW.instructor_id IS NOT NULL) OR (OLD.instructor_id IS NOT NULL AND NEW.instructor_id IS NULL)) THEN
         -- Obtener duración del bloque anterior
         SELECT COALESCE(tb.duration_minutes, 0) INTO old_duration_minutes
         FROM day_time_block dtb
@@ -170,26 +181,30 @@ BEGIN
 
         SET old_duration_hours = old_duration_minutes / 60.0;
 
-        -- Restar horas del instructor anterior
-        UPDATE instructor
-        SET hour_count = GREATEST(0, hour_count - old_duration_hours)
-        WHERE instructor_id = OLD.instructor_id;
+        -- Restar horas del instructor anterior (solo si había instructor)
+        IF OLD.instructor_id IS NOT NULL THEN
+            UPDATE instructor
+            SET hour_count = GREATEST(0, hour_count - old_duration_hours)
+            WHERE instructor_id = OLD.instructor_id;
+        END IF;
 
-        -- Obtener duración del nuevo bloque
-        SELECT COALESCE(tb.duration_minutes, 0) INTO new_duration_minutes
-        FROM day_time_block dtb
-        INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
-        WHERE dtb.day_time_block_id = NEW.day_time_block_id;
+        -- Sumar horas al nuevo instructor (solo si hay nuevo instructor)
+        IF NEW.instructor_id IS NOT NULL THEN
+            -- Obtener duración del nuevo bloque
+            SELECT COALESCE(tb.duration_minutes, 0) INTO new_duration_minutes
+            FROM day_time_block dtb
+            INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
+            WHERE dtb.day_time_block_id = NEW.day_time_block_id;
 
-        SET new_duration_hours = new_duration_minutes / 60.0;
+            SET new_duration_hours = new_duration_minutes / 60.0;
 
-        -- Sumar horas al nuevo instructor
-        UPDATE instructor
-        SET hour_count = hour_count + new_duration_hours
-        WHERE instructor_id = NEW.instructor_id;
+            UPDATE instructor
+            SET hour_count = hour_count + new_duration_hours
+            WHERE instructor_id = NEW.instructor_id;
+        END IF;
 
-    -- Si cambió el horario pero no el instructor, ajustar la diferencia
-    ELSEIF OLD.day_time_block_id != NEW.day_time_block_id THEN
+    -- Si cambió el horario pero no el instructor, ajustar la diferencia (solo si hay instructor)
+    ELSEIF OLD.day_time_block_id != NEW.day_time_block_id AND NEW.instructor_id IS NOT NULL THEN
         -- Obtener duración del bloque anterior
         SELECT COALESCE(tb.duration_minutes, 0) INTO old_duration_minutes
         FROM day_time_block dtb
@@ -230,41 +245,44 @@ BEGIN
     DECLARE total_after_class DECIMAL(10,2) DEFAULT 0;
     DECLARE error_message VARCHAR(500);
 
-    -- Obtener horas actuales del instructor
-    SELECT COALESCE(hour_count, 0) INTO current_hours
-    FROM instructor
-    WHERE instructor_id = NEW.instructor_id;
-
-    -- Obtener duración de la nueva clase en minutos
-    SELECT COALESCE(tb.duration_minutes, 0) INTO class_duration_minutes
-    FROM day_time_block dtb
-    INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
-    WHERE dtb.day_time_block_id = NEW.day_time_block_id;
-
-    SET class_duration_hours = class_duration_minutes / 60.0;
-
-    -- Obtener límite de horas del contrato del instructor
-    SELECT c.hour_limit INTO hour_limit
-    FROM instructor i
-    INNER JOIN contract c ON i.contract_id = c.contract_id
-    WHERE i.instructor_id = NEW.instructor_id;
-
-    -- Calcular total después de agregar la nueva clase
-    SET total_after_class = current_hours + class_duration_hours;
-
-    -- Si excede el límite, generar error
-    IF hour_limit IS NOT NULL AND total_after_class > hour_limit THEN
-        SELECT first_name, last_name INTO instructor_fname, instructor_lname
+    -- Solo verificar límite si hay instructor asignado
+    IF NEW.instructor_id IS NOT NULL THEN
+        -- Obtener horas actuales del instructor
+        SELECT COALESCE(hour_count, 0) INTO current_hours
         FROM instructor
         WHERE instructor_id = NEW.instructor_id;
 
-        SET error_message = CONCAT('LIMITE HORAS EXCEDIDO: El instructor ', instructor_fname, ' ',
-            instructor_lname, ' superaría su límite contractual (',
-            hour_limit, ' horas). Total actual: ', current_hours,
-            ' horas. Esta clase agregaría ', class_duration_hours,
-            ' horas para un total de ', total_after_class, ' horas.');
+        -- Obtener duración de la nueva clase en minutos
+        SELECT COALESCE(tb.duration_minutes, 0) INTO class_duration_minutes
+        FROM day_time_block dtb
+        INNER JOIN time_block tb ON dtb.time_block_id = tb.time_block_id
+        WHERE dtb.day_time_block_id = NEW.day_time_block_id;
 
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+        SET class_duration_hours = class_duration_minutes / 60.0;
+
+        -- Obtener límite de horas del contrato del instructor
+        SELECT c.hour_limit INTO hour_limit
+        FROM instructor i
+        INNER JOIN contract c ON i.contract_id = c.contract_id
+        WHERE i.instructor_id = NEW.instructor_id;
+
+        -- Calcular total después de agregar la nueva clase
+        SET total_after_class = current_hours + class_duration_hours;
+
+        -- Si excede el límite, generar error
+        IF hour_limit IS NOT NULL AND total_after_class > hour_limit THEN
+            SELECT first_name, last_name INTO instructor_fname, instructor_lname
+            FROM instructor
+            WHERE instructor_id = NEW.instructor_id;
+
+            SET error_message = CONCAT('LIMITE HORAS EXCEDIDO: El instructor ', instructor_fname, ' ',
+                instructor_lname, ' superaría su límite contractual (',
+                hour_limit, ' horas). Total actual: ', current_hours,
+                ' horas. Esta clase agregaría ', class_duration_hours,
+                ' horas para un total de ', total_after_class, ' horas.');
+
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+        END IF;
     END IF;
 END$$
 
@@ -283,23 +301,26 @@ BEGIN
     DECLARE group_number_val INT;
     DECLARE error_message VARCHAR(500);
 
-    -- Obtener capacidad del aula
-    SELECT capacity, room_number INTO classroom_capacity, classroom_number
-    FROM classroom
-    WHERE classroom_id = NEW.classroom_id;
+    -- Solo validar capacidad si hay aula asignada
+    IF NEW.classroom_id IS NOT NULL THEN
+        -- Obtener capacidad del aula
+        SELECT capacity, room_number INTO classroom_capacity, classroom_number
+        FROM classroom
+        WHERE classroom_id = NEW.classroom_id;
 
-    -- Obtener capacidad del grupo
-    SELECT capacity, group_number INTO group_capacity, group_number_val
-    FROM student_group
-    WHERE group_id = NEW.group_id;
+        -- Obtener capacidad del grupo
+        SELECT capacity, group_number INTO group_capacity, group_number_val
+        FROM student_group
+        WHERE group_id = NEW.group_id;
 
-    -- Validar que el aula tenga capacidad suficiente
-    IF group_capacity > classroom_capacity THEN
-        SET error_message = CONCAT('CAPACIDAD INSUFICIENTE: El aula ', classroom_number,
-            ' tiene capacidad para ', classroom_capacity, ' estudiantes, pero el grupo ',
-            group_number_val, ' tiene ', group_capacity, ' estudiantes.');
+        -- Validar que el aula tenga capacidad suficiente
+        IF group_capacity > classroom_capacity THEN
+            SET error_message = CONCAT('CAPACIDAD INSUFICIENTE: El aula ', classroom_number,
+                ' tiene capacidad para ', classroom_capacity, ' estudiantes, pero el grupo ',
+                group_number_val, ' tiene ', group_capacity, ' estudiantes.');
 
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = error_message;
+        END IF;
     END IF;
 END$$
 

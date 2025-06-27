@@ -13,15 +13,6 @@ export enum ProgramStatus {
   SUSPENDED = 'SUSPENDED'
 }
 
-
-
-
-export enum ProgramModality {
-  PRESENCIAL = 'PRESENCIAL',
-  VIRTUAL = 'VIRTUAL',
-  MIXTA = 'MIXTA'
-}
-
 export enum ProgramLevel {
   TECNICO = 'TECNICO',
   TECNOLOGO = 'TECNOLOGO',
@@ -36,40 +27,53 @@ export enum ProgramLevel {
 
 // Main entity interface
 export interface Program extends BaseEntity {
-  readonly id: string
-  code: string
+  program_id: number
   name: string
-  description?: string
-  duration: number
-  modality: ProgramModality
-  level: ProgramLevel
-  department: string
-  status: ProgramStatus
-  readonly createdAt: string
-  readonly updatedAt: string
+  nomenclature_id?: number
+  chain_id?: number
+  department_id?: number
+  level_id?: number
+  active: boolean
+  nomenclature?: {
+    nomenclature_id: number
+    code: string
+  }
+  chain?: {
+    chain_id: number
+    name: string
+  }
+  department?: {
+    department_id: number
+    name: string
+    phone_number?: string
+    email?: string
+  }
+  level?: {
+    level_id: number
+    study_type: string
+    duration: number
+  }
+  readonly created_at: string
+  readonly updated_at: string
 }
 
 // DTO interfaces for API operations
 export interface CreateProgramDTO {
-  code: string
   name: string
-  description?: string
-  duration: number
-  modality: ProgramModality
-  level: ProgramLevel
-  department: string
-  status: ProgramStatus
+  nomenclature_id?: number
+  chain_id?: number
+  department_id?: number
+  level_id?: number
+  active?: boolean
 }
 
 export interface UpdateProgramDTO {
-  code?: string
   name?: string
-  description?: string
-  duration?: number
-  modality?: ProgramModality
-  level?: ProgramLevel
-  department?: string
-  status?: ProgramStatus
+  nomenclature_id?: number
+  chain_id?: number
+  department_id?: number
+  level_id?: number
+  active?: boolean
 }
 
 // Query interfaces
