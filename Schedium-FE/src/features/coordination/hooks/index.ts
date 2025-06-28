@@ -111,6 +111,9 @@ export function useCoordinationCounts(departmentId: number) {
     queryKey: ['coordination-counts', departmentId],
     queryFn: () => coordinationService.getCoordinationCounts(departmentId),
     enabled: !!departmentId,
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 30000, // 30 seconds cache to reduce API calls
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: false // Deshabilitar refetch automático
   })
 }

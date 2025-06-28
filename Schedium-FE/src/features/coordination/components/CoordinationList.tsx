@@ -4,7 +4,7 @@ import { Edit2, Eye, Filter, Search, Trash2, Users, Mail, Phone, BookOpen, Gradu
 import { Button, Card, Input, Modal } from '@/design-system/components'
 import { Badge } from '@/design-system/components/Badge'
 import { useCoordinations, useDeleteCoordination, useCoordinationCounts } from '../hooks'
-import { CoordinationForm } from './CoordinationForm'
+import { CoordinationModal } from './CoordinationModal'
 import { CoordinationDetail } from './CoordinationDetail'
 import type { Coordination, CoordinationQuery } from '../types'
 
@@ -137,7 +137,6 @@ export function CoordinationList() {
     search: ''
   })
   const [selectedCoordination, setSelectedCoordination] = useState<Coordination | null>(null)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -180,7 +179,6 @@ export function CoordinationList() {
   }
 
   const closeModals = () => {
-    setIsCreateModalOpen(false)
     setIsEditModalOpen(false)
     setIsDetailModalOpen(false)
     setIsDeleteModalOpen(false)
@@ -286,28 +284,13 @@ export function CoordinationList() {
         </div>
       )}
 
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={closeModals}
-        title="Nueva Coordinación"
-        size="lg"
-      >
-        <CoordinationForm onSuccess={closeModals} />
-      </Modal>
-
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={closeModals}
-        title="Editar Coordinación"
-        size="lg"
-      >
-        {selectedCoordination && (
-          <CoordinationForm 
-            coordination={selectedCoordination} 
-            onSuccess={closeModals} 
-          />
-        )}
-      </Modal>
+      {isEditModalOpen && selectedCoordination && (
+        <CoordinationModal 
+          coordination={selectedCoordination}
+          onClose={closeModals}
+          onSuccess={closeModals} 
+        />
+      )}
 
       <Modal
         isOpen={isDetailModalOpen}

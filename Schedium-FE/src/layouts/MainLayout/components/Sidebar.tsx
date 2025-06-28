@@ -11,7 +11,9 @@ import {
   Users,
   UserCheck,
   Building2,
-  Users2
+  Users2,
+  MapPin,
+  Home as EnvironmentIcon
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@/constants'
@@ -72,9 +74,13 @@ const navigationItems: NavItem[] = [
     ],
   },
   {
-    label: 'Sedes',
-    path: ROUTES.INFRASTRUCTURE.CAMPUS,
+    label: 'Centro',
+    path: '/centro',
     icon: Building2,
+    children: [
+      { label: 'Sedes', path: ROUTES.INFRASTRUCTURE.CAMPUS, icon: MapPin },
+      { label: 'Ambientes', path: ROUTES.INFRASTRUCTURE.ENVIRONMENTS, icon: EnvironmentIcon },
+    ],
   },
   {
     label: 'Usuarios',

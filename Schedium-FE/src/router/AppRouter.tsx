@@ -3,6 +3,7 @@ import { Home } from '@/pages/Home'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
+import { SetPasswordPage } from '@/pages/auth/SetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import ProgrammingPage from '@/pages/ProgrammingPage'
 import ConsultasPage from '@/pages/ConsultasPage'
@@ -26,8 +27,9 @@ import InfrastructurePage from '@/pages/infrastructure/InfrastructurePage'
 import { CampusPage } from '@/pages/infrastructure/CampusPage'
 import { BuildingsPage } from '@/pages/infrastructure/BuildingsPage'
 import { ClassroomsPage } from '@/pages/infrastructure/ClassroomsPage'
+import EnvironmentsPage from '@/pages/infrastructure/EnvironmentsPage'
 import { AdminPage } from '@/pages/admin/AdminPage'
-import { UsersPage } from '@/pages/admin/UsersPage'
+import { UsersPage } from '@/pages/hr/UsersPage'
 import { RolesPage } from '@/pages/admin/RolesPage'
 import { SettingsPage } from '@/pages/admin/SettingsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
@@ -43,6 +45,7 @@ export const AppRouter = () => {
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
         <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
         <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
         <Route path={ROUTES.DASHBOARD} element={<AuthGuard><MainLayout><DashboardPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.PROGRAMMING} element={<AuthGuard><MainLayout><ProgrammingPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.CONSULTAS} element={<AuthGuard><MainLayout><ConsultasPage /></MainLayout></AuthGuard>} />
@@ -59,10 +62,11 @@ export const AppRouter = () => {
         <Route path={ROUTES.HR.DEPARTMENTS} element={<AuthGuard><MainLayout><DepartmentsPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.HR.POSITIONS} element={<AuthGuard><MainLayout><PositionsPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.HR.COORDINATIONS} element={<AuthGuard><MainLayout><CoordinationsPage /></MainLayout></AuthGuard>} />
-        <Route path={ROUTES.INFRASTRUCTURE.MAIN} element={<AuthGuard><MainLayout><InfrastructurePage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.INFRASTRUCTURE.CAMPUS} element={<AuthGuard><MainLayout><CampusPage /></MainLayout></AuthGuard>} />
+        <Route path={ROUTES.INFRASTRUCTURE.ENVIRONMENTS} element={<AuthGuard><MainLayout><EnvironmentsPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.INFRASTRUCTURE.BUILDINGS} element={<AuthGuard><MainLayout><BuildingsPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.INFRASTRUCTURE.CLASSROOMS} element={<AuthGuard><MainLayout><ClassroomsPage /></MainLayout></AuthGuard>} />
+        <Route path={ROUTES.INFRASTRUCTURE.MAIN} element={<AuthGuard><MainLayout><InfrastructurePage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.ADMIN.MAIN} element={<AuthGuard><MainLayout><AdminPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.ADMIN.USERS} element={<AuthGuard><MainLayout><UsersPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.ADMIN.ROLES} element={<AuthGuard><MainLayout><RolesPage /></MainLayout></AuthGuard>} />

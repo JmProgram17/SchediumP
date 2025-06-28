@@ -135,6 +135,19 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
 
+    # Email/SMTP Configuration
+    SMTP_SERVER: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    FROM_EMAIL: str = "noreply@schedium.edu"
+    FROM_NAME: str = "Schedium - Sistema Académico"
+    EMAIL_ENABLED: bool = False  # Master switch for email functionality
+    
+    # Frontend URL for magic links
+    FRONTEND_URL: str = "http://localhost:3000"
+
     @property
     def DATABASE_URL(self) -> str:
         """Construct database URL from components."""

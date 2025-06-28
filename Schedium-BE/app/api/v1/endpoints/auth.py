@@ -317,7 +317,7 @@ async def get_coordinators(
     
     # Get users with coordinator role
     users = service.get_users(
-        params=PaginationParams(page=1, page_size=1000),  # Get all coordinators
+        params=PaginationParams(page=1, page_size=100),  # Get all coordinators (max 100)
         role_id=coordinator_role.role_id,
         active=active if active is not None else True  # Default to active only
     )
@@ -480,3 +480,161 @@ async def delete_role(
     service.delete_role(role_id)
 
     return DeletedResponse(message="Role deleted successfully", errors=None)
+
+
+# Estrategia Híbrida de Autenticación
+@router.post("/users/create-with-strategy", response_model=SuccessResponse)
+async def create_user_with_auth_strategy(
+    user_data: UserCreate,
+    preferred_method: Optional[str] = Body(None),
+    current_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    request=None  # Para obtener IP y User-Agent
+) -> SuccessResponse:
+    """
+    Crea usuario usando estrategia híbrida de autenticación.
+    
+    Métodos disponibles:
+    - magic_link: Enlace por email para crear contraseña (preferido)
+    - temp_email: Contraseña temporal por email
+    - visible_password: Contraseña visible (solo emergencias)
+    - auto: Decidir automáticamente (recomendado)
+    """
+    from app.services.auth_strategy_service import AuthStrategyService
+    
+    # Obtener información de la request
+    ip_address = getattr(request, 'client', {}).get('host') if request else None
+    user_agent = getattr(request, 'headers', {}).get('user-agent') if request else None
+    
+    strategy_service = AuthStrategyService(db)
+    
+    user_dict = {
+        'email': user_data.email,
+        'first_name': user_data.first_name,
+        'last_name': user_data.last_name,
+        'document_number': user_data.document_number,
+        'role_id': user_data.role_id,
+        'active': getattr(user_data, 'active', True)
+    }
+    
+    try:
+        user, auth_result = strategy_service.create_user_with_strategy(
+            user_data=user_dict,
+            admin_user_id=current_user.user_id,
+            preferred_method=preferred_method,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        return SuccessResponse(
+            data={
+                'user': {
+                    'user_id': user.user_id,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'role_id': user.role_id
+                },
+                'auth_result': auth_result
+            },
+            message="Usuario creado exitosamente con estrategia híbrida",
+            errors=None
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al crear usuario: {str(e)}"
+        )
+
+
+@router.get("/auth-methods/available", response_model=SuccessResponse)
+async def get_available_auth_methods(
+    db: Annotated[Session, Depends(get_db)]
+) -> SuccessResponse:
+    """
+    Obtiene los métodos de autenticación disponibles.
+    """
+    from app.services.auth_strategy_service import AuthStrategyService
+    
+    strategy_service = AuthStrategyService(db)
+    available_methods = strategy_service.check_available_methods()
+    
+    return SuccessResponse(
+        data=available_methods,
+        message="Métodos de autenticación obtenidos",
+        errors=None
+    )
+
+
+@router.post("/set-password-from-token", response_model=SuccessResponse)
+async def set_password_from_token(
+    token: str = Body(...),
+    new_password: str = Body(...),
+    db: Annotated[Session, Depends(get_db)],
+    request=None
+) -> SuccessResponse:
+    """
+    Establece contraseña usando un token válido (magic link).
+    """
+    from app.services.auth_strategy_service import AuthStrategyService
+    
+    # Obtener información de la request
+    ip_address = getattr(request, 'client', {}).get('host') if request else None
+    user_agent = getattr(request, 'headers', {}).get('user-agent') if request else None
+    
+    strategy_service = AuthStrategyService(db)
+    
+    success, error_message = strategy_service.set_password_from_token(
+        token_plain=token,
+        new_password=new_password,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_message
+        )
+    
+    return SuccessResponse(
+        data=None,
+        message="Contraseña establecida exitosamente",
+        errors=None
+    )
+
+
+@router.post("/verify-token", response_model=SuccessResponse)
+async def verify_auth_token(
+    token: str = Body(...),
+    db: Annotated[Session, Depends(get_db)]
+) -> SuccessResponse:
+    """
+    Verifica si un token es válido sin usarlo.
+    """
+    from app.services.auth_strategy_service import AuthStrategyService
+    
+    strategy_service = AuthStrategyService(db)
+    
+    valid, user, error_message = strategy_service.verify_and_use_token(token)
+    
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_message
+        )
+    
+    return SuccessResponse(
+        data={
+            'valid': True,
+            'user': {
+                'user_id': user.user_id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name
+            }
+        },
+        message="Token válido",
+        errors=None
+    )

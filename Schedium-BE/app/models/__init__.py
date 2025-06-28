@@ -60,6 +60,8 @@ from app.models.hr import *  # noqa: F401, F403
 from app.models.academic import *  # noqa: F401, F403
 from app.models.infrastructure import *  # noqa: F401, F403
 from app.models.auth import *  # noqa: F401, F403
+from app.models.auth_token import *  # noqa: F401, F403
+from app.models.auth_audit import *  # noqa: F401, F403
 from app.models.scheduling import *  # noqa: F401, F403
 
 # Re-export Base for convenience

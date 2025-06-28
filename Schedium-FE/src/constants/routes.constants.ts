@@ -39,6 +39,7 @@ export const ROUTES = {
     BASE: '/infrastructure',
     MAIN: '/infraestructura',
     CAMPUS: '/infrastructure/campus',
+    ENVIRONMENTS: '/infrastructure/environments',
     BUILDINGS: '/infrastructure/buildings',
     CLASSROOMS: '/infrastructure/classrooms',
   },

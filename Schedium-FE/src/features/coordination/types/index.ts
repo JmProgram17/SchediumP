@@ -2,14 +2,10 @@
  * Types and interfaces for Coordinations (Departments)
  */
 
-export interface User {
-  user_id: number
-  username: string
-  first_name: string
-  last_name: string
-  email: string
-  full_name?: string
-}
+import type { User } from '@/types/auth.types'
+
+// Re-export User type for convenience
+export type { User }
 
 export interface Coordination {
   department_id: number
@@ -17,6 +13,7 @@ export interface Coordination {
   phone_number?: string
   email?: string
   coordinator_id?: number
+  location?: string
   active?: boolean
   created_at: string
   updated_at: string
@@ -32,6 +29,8 @@ export interface CoordinationCreate {
   phone_number?: string
   email?: string
   coordinator_id?: number
+  location?: string
+  active?: boolean
 }
 
 export interface CoordinationUpdate {
@@ -39,6 +38,8 @@ export interface CoordinationUpdate {
   phone_number?: string
   email?: string
   coordinator_id?: number
+  location?: string
+  active?: boolean
 }
 
 export interface CoordinationFilters {
@@ -63,7 +64,9 @@ export interface CoordinationResponse {
 
 export interface CoordinationFormData {
   name: string
-  phone_number: string
-  email: string
-  coordinator_id: number | null
+  phone_number?: string
+  email?: string
+  coordinator_id?: number | null
+  location?: string
+  active?: boolean
 }
