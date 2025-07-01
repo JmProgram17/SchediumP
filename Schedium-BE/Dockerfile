@@ -69,4 +69,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
 # Default command
-CMD ["sh", "-c", "alembic stamp head && python scripts/create_default_roles.py && python scripts/create_admin_docker.py && gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 1 --access-logfile - --error-logfile -"]
+CMD ["sh", "-c", "echo 'Skipping migration check - database already correct' && python scripts/create_default_roles.py && python scripts/create_admin_docker.py && gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 1 --access-logfile - --error-logfile -"]

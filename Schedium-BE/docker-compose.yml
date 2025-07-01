@@ -65,9 +65,9 @@ services:
       APP_ENV: ${APP_ENV:-development}
       DEBUG: ${DEBUG:-false}
       
-      # Database
-      DB_HOST: mysql
-      DB_PORT: 3306
+      # Database  
+      DB_HOST: host.docker.internal
+      DB_PORT: 3307
       DB_USER: ${DB_USER:-schedule}
       DB_PASSWORD: ${DB_PASSWORD:-HorariosSena1}
       DB_NAME: ${DB_NAME:-schedium}
@@ -99,11 +99,14 @@ services:
       - ./uploads:/app/uploads
     networks:
       - schedium-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
+    command: ["sh", "-c", "echo 'Skipping migration check - database already correct' && python scripts/create_default_roles.py && python scripts/create_admin_docker.py && gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 1 --access-logfile - --error-logfile -"]
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
       interval: 30s

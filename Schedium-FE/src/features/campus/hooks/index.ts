@@ -183,51 +183,7 @@ export function useCanDeleteCampus(id: number) {
   })
 }
 
-/**
- * Hook para toggle del estado activo de una sede
- */
-export function useToggleCampusStatus() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
-      return campusService.updateCampus(id, { active })
-    },
-    onMutate: async ({ id, active }) => {
-      // Optimistic update
-      await queryClient.cancelQueries({ queryKey: campusKeys.detail(id) })
-      
-      const previousCampus = queryClient.getQueryData<Campus>(campusKeys.detail(id))
-      
-      if (previousCampus) {
-        queryClient.setQueryData<Campus>(campusKeys.detail(id), {
-          ...previousCampus,
-          active,
-          updated_at: new Date().toISOString()
-        })
-      }
-
-      return { previousCampus }
-    },
-    onSuccess: (updatedCampus) => {
-      queryClient.invalidateQueries({ queryKey: campusKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: campusKeys.stats() })
-      
-      toast.success(
-        `Sede ${updatedCampus.active ? 'activada' : 'desactivada'} exitosamente`
-      )
-    },
-    onError: (error, { id }, context) => {
-      // Revert optimistic update
-      if (context?.previousCampus) {
-        queryClient.setQueryData(campusKeys.detail(id), context.previousCampus)
-      }
-      
-      console.error('Error toggling campus status:', error)
-      toast.error('Error al cambiar el estado de la sede')
-    },
-  })
-}
+// Hook removido - campo 'active' no existe en el modelo actual
 
 /**
  * Hook para eliminar múltiples sedes

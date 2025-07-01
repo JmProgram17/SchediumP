@@ -3,7 +3,7 @@ Scheduling domain models.
 Maps schedule, time blocks, days, quarters, and class schedules.
 """
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Time, UniqueConstraint
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Time, Boolean, Text, UniqueConstraint, event, CheckConstraint
 from sqlalchemy.orm import relationship
 
 from app.models import Base, TimeStampMixin
@@ -39,7 +39,10 @@ class TimeBlock(Base, TimeStampMixin):
     time_block_id = Column(Integer, primary_key=True, autoincrement=True)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    duration_minutes = Column(Integer)  # Computed column in DB
+    duration_minutes = Column(Integer)  # Computed column in DB - read only
+    name = Column(String(50), nullable=True)
+    description = Column(String(200), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
 
     # Relationships
     day_time_blocks = relationship("DayTimeBlock", back_populates="time_block")
@@ -64,6 +67,9 @@ class Day(Base, TimeStampMixin):
 
     day_id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(20), nullable=False, unique=True, index=True)
+    short_name = Column(String(10), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
 
     # Relationships
     day_time_blocks = relationship("DayTimeBlock", back_populates="day")
@@ -107,12 +113,17 @@ class Quarter(Base, TimeStampMixin):
     """Academic quarter model."""
 
     __tablename__ = "quarter"
+    __table_args__ = {'extend_existing': True}  # Allow column extension
     __allow_unmapped__ = True
 
     quarter_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, index=True)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-    name = Column(String(50))  # Generated column in DB
+    quarter_number = Column(Integer, nullable=True)  # 1-4
+    academic_year = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     class_schedules = relationship("ClassSchedule", back_populates="quarter")
@@ -195,3 +206,36 @@ class ClassSchedule(Base, TimeStampMixin):
 
     def __repr__(self) -> str:
         return f"<ClassSchedule(id={self.class_schedule_id}, subject={self.subject})>"
+
+
+class AcademicScheduleConfig(Base, TimeStampMixin):
+    """Academic schedule configuration model for global scheduling parameters."""
+
+    __tablename__ = "academic_schedule_config"
+    __allow_unmapped__ = True
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    day_start_time = Column(Time, nullable=False, default="06:00:00", comment="Daily academic schedule start time")
+    day_end_time = Column(Time, nullable=False, default="22:00:00", comment="Daily academic schedule end time")
+    min_class_duration_minutes = Column(Integer, nullable=False, default=60, comment="Minimum class duration in minutes")
+    max_class_duration_minutes = Column(Integer, nullable=False, default=240, comment="Maximum class duration in minutes")
+    is_active = Column(Boolean, default=True, nullable=False, comment="Whether this configuration is active")
+
+    __table_args__ = (
+        CheckConstraint('day_start_time < day_end_time', name='ck_valid_day_times'),
+        CheckConstraint('min_class_duration_minutes > 0', name='ck_positive_min_duration'),
+        CheckConstraint('max_class_duration_minutes >= min_class_duration_minutes', name='ck_valid_duration_range'),
+        {"comment": "Global academic schedule configuration parameters"},
+    )
+
+    def __repr__(self) -> str:
+        return f"<AcademicScheduleConfig(id={self.id}, start={self.day_start_time}, end={self.day_end_time})>"
+
+
+# Event to exclude duration_minutes from INSERT/UPDATE statements
+@event.listens_for(TimeBlock, 'before_insert')
+@event.listens_for(TimeBlock, 'before_update')
+def exclude_duration_minutes(mapper, connection, target):
+    """Exclude duration_minutes from being inserted/updated as it's a generated column"""
+    if hasattr(target, '__dict__') and 'duration_minutes' in target.__dict__:
+        del target.__dict__['duration_minutes']

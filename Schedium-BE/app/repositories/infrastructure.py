@@ -31,6 +31,10 @@ class CampusRepository(BaseRepository[Campus, CampusCreate, CampusUpdate]):
         """Get campus by address."""
         return self.db.query(Campus).filter(Campus.address == address).first()
 
+    def get_by_name(self, name: str) -> Optional[Campus]:
+        """Get campus by name."""
+        return self.db.query(Campus).filter(Campus.name == name).first()
+
     def get_classrooms_count(self, campus_id: int) -> int:
         """Get count of classrooms in this campus."""
         return self.db.query(Classroom).filter(Classroom.campus_id == campus_id).count()
@@ -43,6 +47,7 @@ class CampusRepository(BaseRepository[Campus, CampusCreate, CampusUpdate]):
 
         if search:
             search_filter = or_(
+                Campus.name.ilike(f"%{search}%"),
                 Campus.address.ilike(f"%{search}%"),
                 Campus.email.ilike(f"%{search}%"),
                 Campus.phone_number.ilike(f"%{search}%"),
@@ -87,33 +92,16 @@ class ClassroomRepository(BaseRepository[Classroom, ClassroomCreate, ClassroomUp
         params: PaginationParams,
         search: Optional[str] = None,
         campus_id: Optional[int] = None,
-        classroom_type: Optional[str] = None,
-        min_capacity: Optional[int] = None,
-        max_capacity: Optional[int] = None,
     ) -> Page[Classroom]:
         """Search classrooms with filters."""
         query = self.db.query(Classroom).options(joinedload(Classroom.campus))
 
         # Apply filters
         if search:
-            query = query.filter(
-                or_(
-                    Classroom.room_number.ilike(f"%{search}%"),
-                    Classroom.classroom_type.ilike(f"%{search}%"),
-                )
-            )
+            query = query.filter(Classroom.room_number.ilike(f"%{search}%"))
 
         if campus_id:
             query = query.filter(Classroom.campus_id == campus_id)
-
-        if classroom_type:
-            query = query.filter(Classroom.classroom_type == classroom_type)
-
-        if min_capacity:
-            query = query.filter(Classroom.capacity >= min_capacity)
-
-        if max_capacity:
-            query = query.filter(Classroom.capacity <= max_capacity)
 
         return paginate(query, params)
 
@@ -131,7 +119,6 @@ class ClassroomRepository(BaseRepository[Classroom, ClassroomCreate, ClassroomUp
         self,
         day_time_block_id: int,
         quarter_id: int,
-        min_capacity: Optional[int] = None,
     ) -> List[Classroom]:
         """Get classrooms available for a specific time slot."""
         from app.models.scheduling import ClassSchedule
@@ -149,9 +136,6 @@ class ClassroomRepository(BaseRepository[Classroom, ClassroomCreate, ClassroomUp
         )
 
         query = self.db.query(Classroom).filter(~Classroom.classroom_id.in_(occupied))
-
-        if min_capacity:
-            query = query.filter(Classroom.capacity >= min_capacity)
 
         return query.all()
 

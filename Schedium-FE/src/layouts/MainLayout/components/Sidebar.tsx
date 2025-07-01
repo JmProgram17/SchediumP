@@ -13,7 +13,8 @@ import {
   Building2,
   Users2,
   MapPin,
-  Home as EnvironmentIcon
+  Home as EnvironmentIcon,
+  Settings
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@/constants'
@@ -81,6 +82,12 @@ const navigationItems: NavItem[] = [
       { label: 'Sedes', path: ROUTES.INFRASTRUCTURE.CAMPUS, icon: MapPin },
       { label: 'Ambientes', path: ROUTES.INFRASTRUCTURE.ENVIRONMENTS, icon: EnvironmentIcon },
     ],
+  },
+  {
+    label: 'Configuración Académica',
+    path: ROUTES.ACADEMIC_CONFIG.MAIN,
+    icon: Settings,
+    roles: ['admin', 'coordinator'],
   },
   {
     label: 'Usuarios',

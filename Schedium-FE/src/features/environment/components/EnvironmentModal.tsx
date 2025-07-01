@@ -7,7 +7,6 @@ import {
   X, 
   Home, 
   Hash, 
-  Users, 
   MapPin, 
   Save, 
   AlertCircle 
@@ -24,11 +23,6 @@ const environmentSchema = z.object({
     .min(2, 'El código debe tener al menos 2 caracteres')
     .max(20, 'El código no puede exceder 20 caracteres')
     .regex(/^[A-Z0-9-]+$/, 'El código solo puede contener letras mayúsculas, números y guiones'),
-  classroom_type: z.string()
-    .min(1, 'Debe seleccionar un tipo'),
-  capacity: z.number()
-    .min(1, 'La capacidad debe ser al menos 1 persona')
-    .max(1000, 'La capacidad no puede exceder 1000 personas'),
   campus_id: z.number({
     required_error: 'Debe seleccionar una sede'
   }).min(1, 'Debe seleccionar una sede')
@@ -43,18 +37,6 @@ interface EnvironmentModalProps {
   mode: 'create' | 'edit'
 }
 
-// Tipos de aula disponibles en el backend
-const CLASSROOM_TYPES = [
-  { value: 'Standard', label: 'Estándar' },
-  { value: 'Laboratory', label: 'Laboratorio' },
-  { value: 'Workshop', label: 'Taller' },
-  { value: 'Auditorium', label: 'Auditorio' },
-  { value: 'Library', label: 'Biblioteca' },
-  { value: 'Office', label: 'Oficina' },
-  { value: 'Meeting Room', label: 'Sala de Reuniones' },
-  { value: 'Computer Lab', label: 'Lab. Cómputo' },
-  { value: 'Sports', label: 'Deportivo' }
-]
 
 export function EnvironmentModal({ isOpen, onClose, environment, mode }: EnvironmentModalProps) {
   const createEnvironment = useCreateEnvironment()
@@ -72,8 +54,7 @@ export function EnvironmentModal({ isOpen, onClose, environment, mode }: Environ
     resolver: zodResolver(environmentSchema),
     mode: 'onChange',
     defaultValues: {
-      classroom_type: 'Standard',
-      capacity: 30
+      classroom_type: 'Standard'
     }
   })
 
@@ -83,15 +64,11 @@ export function EnvironmentModal({ isOpen, onClose, environment, mode }: Environ
       if (mode === 'edit' && environment) {
         reset({
           room_number: environment.room_number,
-          classroom_type: environment.classroom_type,
-          capacity: environment.capacity,
           campus_id: environment.campus_id
         })
       } else {
         reset({
           room_number: '',
-          classroom_type: 'Standard',
-          capacity: 30,
           campus_id: undefined
         })
       }
@@ -183,7 +160,7 @@ export function EnvironmentModal({ isOpen, onClose, environment, mode }: Environ
                   {/* Código */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Código del Aula *
+                      Código del Aula <span className="text-red-500 ml-1">*</span>
                     </label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -207,61 +184,11 @@ export function EnvironmentModal({ isOpen, onClose, environment, mode }: Environ
                     )}
                   </div>
 
-                  {/* Capacidad */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Capacidad *
-                    </label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <input
-                        {...register('capacity', { valueAsNumber: true })}
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="30"
-                        className={`w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                          errors.capacity ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                    </div>
-                    {errors.capacity && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.capacity.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Tipo */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Tipo de Ambiente *
-                    </label>
-                    <select
-                      {...register('classroom_type')}
-                      className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                        errors.classroom_type ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    >
-                      {CLASSROOM_TYPES.map(({ value, label }) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.classroom_type && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.classroom_type.message}
-                      </p>
-                    )}
-                  </div>
 
                   {/* Sede */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Sede *
+                      Sede <span className="text-red-500 ml-1">*</span>
                     </label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />

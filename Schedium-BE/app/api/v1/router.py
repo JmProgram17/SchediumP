@@ -5,7 +5,7 @@ Aggregates all endpoint routers.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import academic, auth, health, hr, infrastructure, scheduling
+from app.api.v1.endpoints import academic, auth, dashboard, health, hr, infrastructure, scheduling, academic_config
 
 api_router = APIRouter()
 
@@ -23,3 +23,7 @@ api_router.include_router(
 )
 
 api_router.include_router(scheduling.router, prefix="/scheduling", tags=["scheduling"])
+
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+
+api_router.include_router(academic_config.router, tags=["academic-config"])

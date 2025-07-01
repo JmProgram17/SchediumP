@@ -67,10 +67,10 @@ export class CampusService {
    */
   static async getCampusOptions(): Promise<Array<{ value: number; label: string }>> {
     try {
-      const response = await this.getCampuses({ page_size: 100, active: true })
+      const response = await this.getCampuses({ page_size: 100 })
       return response.items.map(campus => ({
         value: campus.campus_id,
-        label: `${campus.name} - ${campus.city}`
+        label: campus.name
       }))
     } catch (error) {
       console.error('Error fetching campus options:', error)

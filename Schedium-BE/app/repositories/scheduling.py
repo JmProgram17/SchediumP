@@ -209,10 +209,9 @@ class QuarterRepository(BaseRepository[Quarter, QuarterCreate, QuarterUpdate]):
 
     def get_current_quarter(self) -> Optional[Quarter]:
         """Get the current active quarter."""
-        today = date.today()
         return (
             self.db.query(Quarter)
-            .filter(and_(Quarter.start_date <= today, Quarter.end_date >= today))
+            .filter(Quarter.is_active == True)
             .first()
         )
 

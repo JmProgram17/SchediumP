@@ -486,9 +486,9 @@ async def delete_role(
 @router.post("/users/create-with-strategy", response_model=SuccessResponse)
 async def create_user_with_auth_strategy(
     user_data: UserCreate,
-    preferred_method: Optional[str] = Body(None),
     current_user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    preferred_method: Optional[str] = Body(None),
     request=None  # Para obtener IP y User-Agent
 ) -> SuccessResponse:
     """
@@ -569,9 +569,9 @@ async def get_available_auth_methods(
 
 @router.post("/set-password-from-token", response_model=SuccessResponse)
 async def set_password_from_token(
+    db: Annotated[Session, Depends(get_db)],
     token: str = Body(...),
     new_password: str = Body(...),
-    db: Annotated[Session, Depends(get_db)],
     request=None
 ) -> SuccessResponse:
     """
@@ -607,8 +607,8 @@ async def set_password_from_token(
 
 @router.post("/verify-token", response_model=SuccessResponse)
 async def verify_auth_token(
-    token: str = Body(...),
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[Session, Depends(get_db)],
+    token: str = Body(...)
 ) -> SuccessResponse:
     """
     Verifica si un token es válido sin usarlo.

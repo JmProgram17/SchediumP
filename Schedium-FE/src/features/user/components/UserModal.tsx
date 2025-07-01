@@ -356,7 +356,7 @@ export const UserModal: React.FC<UserModalProps> = ({
                     <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       <UserIcon className="h-4 w-4" />
                       <span>Nombre</span>
-                      <span className="text-red-500">*</span>
+                      <span className="text-red-500 ml-1">*</span>
                     </label>
                     <input
                       {...register('first_name')}
@@ -376,7 +376,7 @@ export const UserModal: React.FC<UserModalProps> = ({
                     <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       <UserIcon className="h-4 w-4" />
                       <span>Apellido</span>
-                      <span className="text-red-500">*</span>
+                      <span className="text-red-500 ml-1">*</span>
                     </label>
                     <input
                       {...register('last_name')}
@@ -418,7 +418,7 @@ export const UserModal: React.FC<UserModalProps> = ({
                     <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       <FileText className="h-4 w-4" />
                       <span>Documento</span>
-                      <span className="text-red-500">*</span>
+                      <span className="text-red-500 ml-1">*</span>
                     </label>
                     <input
                       {...register('document_number')}
@@ -438,7 +438,7 @@ export const UserModal: React.FC<UserModalProps> = ({
                     <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       <Shield className="h-4 w-4" />
                       <span>Rol</span>
-                      <span className="text-red-500">*</span>
+                      <span className="text-red-500 ml-1">*</span>
                     </label>
                     <SearchableSelect
                       options={roleOptions}

@@ -171,7 +171,6 @@ export const createMockInstructor = (overrides = {}) => ({
 export const createMockClassroom = (overrides = {}) => ({
   id: '1',
   name: 'Room A-101',
-  capacity: 30,
   equipment: ['projector', 'whiteboard'],
   building: 'Main Building',
   floor: 1,

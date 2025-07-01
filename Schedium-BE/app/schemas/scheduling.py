@@ -125,14 +125,20 @@ class DayTimeBlock(DayTimeBlockBase, TimestampSchema):
 class QuarterBase(BaseSchema):
     """Base quarter schema."""
 
+    name: str = Field(..., min_length=1, max_length=100, description="Quarter name")
     start_date: date = Field(..., description="Start date")
     end_date: date = Field(..., description="End date")
+    quarter_number: Optional[int] = Field(None, ge=1, le=4, description="Quarter number (1-4)")
+    academic_year: Optional[int] = Field(None, description="Academic year")
+    description: Optional[str] = Field(None, max_length=1000, description="Quarter description")
+    is_active: bool = Field(default=False, description="Whether quarter is active")
 
     @model_validator(mode="after")
     def validate_dates(self) -> "QuarterBase":
         """Validate end date is after start date."""
         if self.end_date <= self.start_date:
             raise ValueError("End date must be after start date")
+        
         return self
 
 
@@ -145,15 +151,19 @@ class QuarterCreate(QuarterBase):
 class QuarterUpdate(BaseSchema):
     """Schema for updating a quarter."""
 
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Quarter name")
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    quarter_number: Optional[int] = Field(None, ge=1, le=4, description="Quarter number (1-4)")
+    academic_year: Optional[int] = Field(None, description="Academic year")
+    description: Optional[str] = Field(None, max_length=1000, description="Quarter description")
+    is_active: Optional[bool] = Field(None, description="Whether quarter is active")
 
 
 class Quarter(QuarterBase, TimestampSchema):
     """Quarter schema for API responses."""
 
     quarter_id: int = Field(..., description="Quarter ID")
-    name: str = Field(..., description="Quarter name")
 
 
 # Class Schedule Schemas

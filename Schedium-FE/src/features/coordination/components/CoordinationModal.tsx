@@ -322,7 +322,7 @@ export const CoordinationModal: React.FC<CoordinationModalProps> = ({
                   <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <Building2 className="h-4 w-4" />
                     <span>Nombre de la Coordinación</span>
-                    <span className="text-red-500">*</span>
+                    <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
                     {...register('name')}
@@ -344,7 +344,7 @@ export const CoordinationModal: React.FC<CoordinationModalProps> = ({
                   <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <UserIcon className="h-4 w-4" />
                     <span>Coordinador Encargado</span>
-                    <span className="text-red-500">*</span>
+                    <span className="text-red-500 ml-1">*</span>
                   </label>
                   <SearchableSelect
                     options={coordinatorOptions}

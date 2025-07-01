@@ -110,7 +110,7 @@ class HttpClient {
     }
 
     // Skip authentication for public endpoints
-    if (this.isPublicEndpoint(config.url || '')) {
+    if (this.isPublicEndpoint(config.url || '', context.method)) {
       console.log(`🔓 [HTTP] Public request: ${context.method} ${context.url} (${context.requestId})`)
       return config
     }
@@ -250,17 +250,26 @@ class HttpClient {
       return false
     }
 
-    // Don't retry certain HTTP methods
+    // For mutation operations, only retry on 401 (auth) and 5xx errors
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(context.method)) {
+      // Retry auth failures (token might have expired)
+      if (error.response?.status === 401) {
+        return true
+      }
+      // Retry server errors
+      if (error.response?.status && error.response.status >= 500) {
+        return true
+      }
+      // Don't retry client errors (4xx except 401)
       return false
     }
 
-    // Retry network errors
+    // Retry network errors for all requests
     if (!error.response) {
       return true
     }
 
-    // Retry specific status codes
+    // Retry specific status codes for GET requests
     const retryableStatuses = [408, 429, 500, 502, 503, 504]
     return retryableStatuses.includes(error.response.status)
   }
@@ -275,6 +284,21 @@ class HttpClient {
     
     await new Promise(resolve => setTimeout(resolve, delay))
     
+    // For 401 errors on protected endpoints, refresh authentication
+    if (!this.isPublicEndpoint(config.url || '', context.method)) {
+      try {
+        const token = await tokenService.getValidAccessToken()
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
+          console.log(`🔐 [HTTP] Updated auth token for retry: ${context.requestId}`)
+        } else {
+          console.warn(`⚠️ [HTTP] No valid token available for retry: ${context.requestId}`)
+        }
+      } catch (error) {
+        console.error(`❌ [HTTP] Failed to refresh token for retry: ${context.requestId}`, error)
+      }
+    }
+    
     // Update retry attempt
     context.retryAttempt += 1
     config.metadata = context
@@ -285,10 +309,23 @@ class HttpClient {
   /**
    * Check if endpoint is public (doesn't require authentication)
    */
-  private isPublicEndpoint(url: string): boolean {
-    return SECURITY_CONFIG.API.PUBLIC_ENDPOINTS.some(endpoint => 
+  private isPublicEndpoint(url: string, method: string = 'GET'): boolean {
+    // Always check against public endpoints list
+    const isInPublicList = SECURITY_CONFIG.API.PUBLIC_ENDPOINTS.some(endpoint => 
       url.includes(endpoint)
     )
+    
+    // If not in public list, it's protected
+    if (!isInPublicList) {
+      return false
+    }
+    
+    // Special case: academic-config endpoints are only public for GET operations
+    if (url.includes('/academic-config/')) {
+      return method.toUpperCase() === 'GET'
+    }
+    
+    return true
   }
 
   /**

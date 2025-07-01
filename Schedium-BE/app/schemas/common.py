@@ -18,6 +18,7 @@ class BaseSchema(BaseModel):
         use_enum_values=True,
         validate_assignment=True,
         arbitrary_types_allowed=True,
+        extra='allow',  # Allow additional fields
         json_encoders={datetime: lambda v: v.isoformat()},
     )
 

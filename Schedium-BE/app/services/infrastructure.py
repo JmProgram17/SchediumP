@@ -59,18 +59,73 @@ class InfrastructureService:
         campus = self.campus_repo.create(obj_in=campus_in)
         return CampusSchema.model_validate(campus)
 
-    def get_campus(self, campus_id: int) -> CampusSchema:
+    def get_campus(self, campus_id: int):
         """Get campus by ID."""
         campus = self.campus_repo.get_or_404(campus_id)
-        return CampusSchema.model_validate(campus)
+        
+        # Get the environment count
+        environments_count = self.campus_repo.get_classrooms_count(campus.campus_id)
+        
+        # Convert to dict and add environment count
+        campus_dict = {
+            'campus_id': campus.campus_id,
+            'name': campus.name,
+            'address': campus.address,
+            'phone_number': campus.phone_number,
+            'email': campus.email,
+            'created_at': campus.created_at,
+            'updated_at': campus.updated_at,
+            'environments_count': environments_count
+        }
+        
+        # Create a simple object that behaves like a Campus schema
+        class CampusWithCount:
+            def __init__(self, data):
+                for key, value in data.items():
+                    setattr(self, key, value)
+            
+            def model_dump(self, **kwargs):
+                return self.__dict__.copy()
+        
+        return CampusWithCount(campus_dict)
 
     def get_campuses(
         self, params: PaginationParams, search: Optional[str] = None
-    ) -> Page[CampusSchema]:
+    ) -> Page:
         """Get paginated list of campuses."""
         page = self.campus_repo.search_campuses(params, search)
-        page.items = [CampusSchema.model_validate(item) for item in page.items]
-        return page
+        
+        # Add environments count to each campus - create completely new page
+        enriched_items = []
+        for campus in page.items:
+            # Get the environment count
+            environments_count = self.campus_repo.get_classrooms_count(campus.campus_id)
+            
+            # Convert to dict and add environment count
+            campus_dict = {
+                'campus_id': campus.campus_id,
+                'name': campus.name,
+                'address': campus.address,
+                'phone_number': campus.phone_number,
+                'email': campus.email,
+                'created_at': campus.created_at.isoformat() if campus.created_at else None,
+                'updated_at': campus.updated_at.isoformat() if campus.updated_at else None,
+                'environments_count': environments_count
+            }
+            
+            enriched_items.append(campus_dict)
+        
+        # Create a new page with the enriched items
+        from app.core.pagination import Page
+        return Page(
+            items=enriched_items,
+            total=page.total,
+            page=page.page,
+            page_size=page.page_size,
+            total_pages=page.total_pages,
+            has_next=page.has_next,
+            has_prev=page.has_prev,
+        )
 
     def update_campus(self, campus_id: int, campus_in: CampusUpdate) -> CampusSchema:
         """Update campus."""
@@ -136,13 +191,10 @@ class InfrastructureService:
         params: PaginationParams,
         search: Optional[str] = None,
         campus_id: Optional[int] = None,
-        classroom_type: Optional[str] = None,
-        min_capacity: Optional[int] = None,
-        max_capacity: Optional[int] = None,
     ) -> Page[ClassroomSchema]:
         """Get paginated list of classrooms."""
         page = self.classroom_repo.search_classrooms(
-            params, search, campus_id, classroom_type, min_capacity, max_capacity
+            params, search, campus_id
         )
         page.items = [ClassroomSchema.model_validate(item) for item in page.items]
         return page
@@ -197,7 +249,6 @@ class InfrastructureService:
         self,
         day_time_block_id: int,
         quarter_id: int,
-        min_capacity: Optional[int] = None,
     ) -> List[ClassroomAvailability]:
         """Get available classrooms for a time slot."""
         from app.repositories.scheduling import (
@@ -217,7 +268,7 @@ class InfrastructureService:
 
         # Get available classrooms
         available = self.classroom_repo.get_available_classrooms(
-            day_time_block_id, quarter_id, min_capacity
+            day_time_block_id, quarter_id
         )
 
         # Convert to availability schema
@@ -227,7 +278,6 @@ class InfrastructureService:
                 classroom_id=classroom.classroom_id,
                 room_number=classroom.room_number,
                 campus=classroom.campus.address,
-                capacity=classroom.capacity,
                 is_available=True,
                 day=day_time_block.day.name,
                 time_block=f"{day_time_block.time_block.start_time}-{day_time_block.time_block.end_time}",

@@ -49,14 +49,14 @@ export const CACHE_CONFIG = {
     retry: 2
   },
 
-  // Real-time data - minimal cache
+  // Real-time data - optimized cache for dashboard
   REALTIME: {
-    staleTime: 30 * 1000,            // 30 seconds
-    cacheTime: 2 * 60 * 1000,        // 2 minutes
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    staleTime: 2 * 60 * 1000,        // 2 minutes - increased for better performance
+    cacheTime: 10 * 60 * 1000,       // 10 minutes
+    refetchOnWindowFocus: false,     // Disabled to prevent excessive requests
+    refetchOnMount: false,           // Use cached data on mount
     retry: 1,
-    refetchInterval: 60 * 1000       // Poll every minute
+    refetchInterval: undefined       // Let individual hooks control their intervals
   }
 } as const
 
@@ -163,6 +163,22 @@ export const queryKeys = {
       conflicts: () => [...queryKeys.scheduling.all(), 'conflicts'] as const,
       calendar: (startDate: string, endDate: string) => [...queryKeys.scheduling.all(), 'calendar', startDate, endDate] as const,
     }
+  },
+
+  // Dashboard
+  dashboard: {
+    all: () => ['dashboard'] as const,
+    metrics: () => [...queryKeys.dashboard.all(), 'metrics'] as const,
+    ocupacionGeneral: () => [...queryKeys.dashboard.all(), 'ocupacion-general'] as const,
+    ambientesActivos: () => [...queryKeys.dashboard.all(), 'ambientes-activos'] as const,
+    instructoresEnClase: () => [...queryKeys.dashboard.all(), 'instructores-en-clase'] as const,
+    alertasPendientes: () => [...queryKeys.dashboard.all(), 'alertas-pendientes'] as const,
+    ocupacionCampus: () => [...queryKeys.dashboard.all(), 'ocupacion-campus'] as const,
+    mapaCalor: () => [...queryKeys.dashboard.all(), 'mapa-calor'] as const,
+    dias: () => [...queryKeys.dashboard.all(), 'dias'] as const,
+    bloquesTime: () => [...queryKeys.dashboard.all(), 'bloques-tiempo'] as const,
+    proximaHora: () => [...queryKeys.dashboard.all(), 'proxima-hora'] as const,
+    distribucionProgramas: (tipo: 'cadena' | 'nivel' = 'cadena') => [...queryKeys.dashboard.all(), 'distribucion-programas', tipo] as const,
   }
 } as const
 
@@ -354,7 +370,7 @@ export const cacheUtils = {
   /**
    * Invalidate all queries for a specific module
    */
-  invalidateModule: async (module: 'auth' | 'users' | 'academic' | 'hr' | 'infrastructure' | 'scheduling') => {
+  invalidateModule: async (module: 'auth' | 'users' | 'academic' | 'hr' | 'infrastructure' | 'scheduling' | 'dashboard') => {
     await queryClient.invalidateQueries({ queryKey: [module] })
   },
 
@@ -459,6 +475,7 @@ export const invalidationStrategies = {
       queryClient.invalidateQueries({ queryKey: queryKeys.hr.instructors.lists() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.academic.courses.lists() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.scheduling.schedules.lists() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() }), // Dashboard metrics affected
       instructorId && queryClient.invalidateQueries({ queryKey: queryKeys.hr.instructors.detail(instructorId) })
     ])
   },
@@ -470,6 +487,7 @@ export const invalidationStrategies = {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.infrastructure.classrooms.lists() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.scheduling.schedules.lists() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() }), // Dashboard metrics affected
       classroomId && queryClient.invalidateQueries({ queryKey: queryKeys.infrastructure.classrooms.detail(classroomId) })
     ])
   },
@@ -482,6 +500,7 @@ export const invalidationStrategies = {
       queryClient.invalidateQueries({ queryKey: queryKeys.scheduling.schedules.lists() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.scheduling.conflicts() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.infrastructure.classrooms.lists() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() }), // Dashboard metrics affected
       scheduleId && queryClient.invalidateQueries({ queryKey: queryKeys.scheduling.schedules.detail(scheduleId) })
     ])
   },

@@ -16,14 +16,8 @@ const campusSchema = z.object({
     .max(100, 'El nombre no puede exceder 100 caracteres'),
   address: z.string()
     .min(5, 'La dirección debe tener al menos 5 caracteres')
-    .max(200, 'La dirección no puede exceder 200 caracteres'),
-  city: z.string()
-    .min(2, 'La ciudad debe tener al menos 2 caracteres')
-    .max(50, 'La ciudad no puede exceder 50 caracteres'),
-  state: z.string()
-    .min(2, 'El departamento debe tener al menos 2 caracteres')
-    .max(50, 'El departamento no puede exceder 50 caracteres'),
-  phone: z.string()
+    .max(255, 'La dirección no puede exceder 255 caracteres'),
+  phone_number: z.string()
     .optional()
     .refine((val) => !val || val.length >= 7, {
       message: 'El teléfono debe tener al menos 7 caracteres'
@@ -32,13 +26,7 @@ const campusSchema = z.object({
     .optional()
     .refine((val) => !val || z.string().email().safeParse(val).success, {
       message: 'Debe ser un email válido'
-    }),
-  postal_code: z.string()
-    .optional()
-    .refine((val) => !val || val.length >= 5, {
-      message: 'El código postal debe tener al menos 5 caracteres'
-    }),
-  active: z.boolean().default(true)
+    })
 })
 
 type CampusFormData = z.infer<typeof campusSchema>
@@ -65,7 +53,10 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
     resolver: zodResolver(campusSchema),
     mode: 'onChange',
     defaultValues: {
-      active: true
+      name: '',
+      address: '',
+      phone_number: '',
+      email: ''
     }
   })
 
@@ -76,23 +67,15 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
         reset({
           name: campus.name,
           address: campus.address,
-          city: campus.city,
-          state: campus.state,
-          phone: campus.phone || '',
-          email: campus.email || '',
-          postal_code: campus.postal_code || '',
-          active: campus.active
+          phone_number: campus.phone_number || '',
+          email: campus.email || ''
         })
       } else {
         reset({
           name: '',
           address: '',
-          city: '',
-          state: '',
-          phone: '',
-          email: '',
-          postal_code: '',
-          active: true
+          phone_number: '',
+          email: ''
         })
       }
     }
@@ -179,11 +162,11 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
               {/* Form */}
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
                 {/* Información básica */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-6">
                   {/* Nombre */}
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Nombre de la Sede *
+                      Nombre de la Sede <span className="text-red-500 ml-1">*</span>
                     </label>
                     <div className="relative">
                       <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -203,57 +186,12 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
                       </p>
                     )}
                   </div>
-
-                  {/* Ciudad */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Ciudad *
-                    </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <input
-                        {...register('city')}
-                        type="text"
-                        placeholder="Ej: Bogotá"
-                        className={`w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                          errors.city ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                    </div>
-                    {errors.city && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.city.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Departamento */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Departamento *
-                    </label>
-                    <input
-                      {...register('state')}
-                      type="text"
-                      placeholder="Ej: Cundinamarca"
-                      className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                        errors.state ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    />
-                    {errors.state && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.state.message}
-                      </p>
-                    )}
-                  </div>
                 </div>
 
                 {/* Dirección */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Dirección *
+                    Dirección <span className="text-red-500 ml-1">*</span>
                   </label>
                   <textarea
                     {...register('address')}
@@ -272,7 +210,7 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
                 </div>
 
                 {/* Información de contacto */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Teléfono */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -281,18 +219,18 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <input
-                        {...register('phone')}
+                        {...register('phone_number')}
                         type="text"
                         placeholder="(5) 5461500"
                         className={`w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                          errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                          errors.phone_number ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
                     </div>
-                    {errors.phone && (
+                    {errors.phone_number && (
                       <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
-                        {errors.phone.message}
+                        {errors.phone_number.message}
                       </p>
                     )}
                   </div>
@@ -320,40 +258,6 @@ export function CampusModal({ isOpen, onClose, campus, mode }: CampusModalProps)
                       </p>
                     )}
                   </div>
-
-                  {/* Código Postal */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Código Postal
-                    </label>
-                    <input
-                      {...register('postal_code')}
-                      type="text"
-                      placeholder="110231"
-                      className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                        errors.postal_code ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    />
-                    {errors.postal_code && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.postal_code.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Estado */}
-                <div className="flex items-center gap-2">
-                  <input
-                    {...register('active')}
-                    type="checkbox"
-                    id="active"
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="active" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Sede activa
-                  </label>
                 </div>
 
                 {/* Footer */}

@@ -43,6 +43,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Campus table
 CREATE TABLE campus (
     campus_id       INT AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(100) NOT NULL,
     address         VARCHAR(255) NOT NULL,
     phone_number    VARCHAR(20),
     email           VARCHAR(100),
@@ -174,7 +175,6 @@ CREATE TABLE time_block (
 CREATE TABLE classroom (
     classroom_id    INT AUTO_INCREMENT PRIMARY KEY,
     room_number     VARCHAR(20) NOT NULL,
-    capacity        INT NOT NULL,
     campus_id       INT NOT NULL,
     classroom_type  VARCHAR(50) DEFAULT 'Standard',
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,

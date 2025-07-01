@@ -5,7 +5,7 @@ Modelo para tokens de autenticación (Magic Links, Password Reset, etc.)
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.database import Base
 from datetime import datetime, timedelta
 import secrets
 import hashlib
@@ -29,8 +29,8 @@ class AuthToken(Base):
     token_type = Column(String(50), nullable=False)  # 'magic_link', 'password_reset', 'email_verification'
     
     # Usuario asociado
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    user = relationship("User", back_populates="auth_tokens")
+    user_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)
+    user = relationship("User", foreign_keys=[user_id])
     
     # Metadatos del token
     expires_at = Column(DateTime, nullable=False)
@@ -38,11 +38,11 @@ class AuthToken(Base):
     is_used = Column(Boolean, default=False, nullable=False)
     
     # Información adicional como JSON string
-    metadata = Column(Text, nullable=True)  # JSON: {'is_first_login': True, 'created_by_admin': 123}
+    token_metadata = Column(Text, nullable=True)  # JSON: {'is_first_login': True, 'created_by_admin': 123}
     
     # Auditoría
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("user.user_id"), nullable=True)
     creator = relationship("User", foreign_keys=[created_by])
     
     # IP y User Agent de creación (seguridad)
@@ -105,7 +105,7 @@ class AuthToken(Base):
             token_type='magic_link',
             user_id=user_id,
             expires_at=expires_at,
-            metadata=str(metadata),  # En producción usar json.dumps
+            token_metadata=str(metadata),  # En producción usar json.dumps
             created_by=created_by,
             created_ip=created_ip,
             created_user_agent=created_user_agent
@@ -136,7 +136,7 @@ class AuthToken(Base):
             token_type='password_reset',
             user_id=user_id,
             expires_at=expires_at,
-            metadata=str(metadata),
+            token_metadata=str(metadata),
             created_ip=created_ip,
             created_user_agent=created_user_agent
         ), token_plain

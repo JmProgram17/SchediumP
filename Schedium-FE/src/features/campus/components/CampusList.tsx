@@ -57,6 +57,7 @@ export const CampusList: React.FC<CampusListProps> = ({
 
   // API hooks
   const { data, isLoading, error } = useCampusList(query)
+  
   const deleteCampus = useDeleteCampus()
   const bulkDelete = useBulkDeleteCampuses()
   const exportData = useExportCampuses()
@@ -149,7 +150,7 @@ export const CampusList: React.FC<CampusListProps> = ({
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
-                placeholder="Buscar por nombre, dirección o ciudad..."
+                placeholder="Buscar por nombre, dirección, email o teléfono..."
                 value={query.search}
                 onChange={(e) => handleSearch(e.target.value)}
                 icon={Search}
@@ -212,20 +213,13 @@ export const CampusList: React.FC<CampusListProps> = ({
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className="font-medium">{campus.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {campus.city}, {campus.state}
-                          </span>
+                          <span className="text-sm text-gray-500">ID: {campus.campus_id}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-gray-400" />
-                          <div className="flex flex-col">
-                            <span>{campus.address}</span>
-                            {campus.postal_code && (
-                              <span className="text-sm text-gray-500">CP: {campus.postal_code}</span>
-                            )}
-                          </div>
+                          <span>{campus.address}</span>
                         </div>
                       </td>
                       <td className="p-4">
@@ -239,10 +233,10 @@ export const CampusList: React.FC<CampusListProps> = ({
                         )}
                       </td>
                       <td className="p-4">
-                        {campus.phone ? (
+                        {campus.phone_number ? (
                           <div className="flex items-center gap-2">
                             <Phone className="w-4 h-4 text-gray-400" />
-                            <span>{campus.phone}</span>
+                            <span>{campus.phone_number}</span>
                           </div>
                         ) : (
                           <span className="text-gray-400">No disponible</span>

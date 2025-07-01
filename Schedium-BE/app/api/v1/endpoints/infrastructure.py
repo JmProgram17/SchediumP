@@ -41,7 +41,7 @@ router = APIRouter()
 
 
 # Campus endpoints
-@router.get("/campuses", response_model=SuccessResponse[Page[Campus]])
+@router.get("/campuses")
 async def get_campuses(
     params: PaginationParams = Depends(get_pagination_params),
     search: Optional[str] = Query(
@@ -49,10 +49,18 @@ async def get_campuses(
     ),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
-) -> SuccessResponse[Page[Campus]]:
+):
     """Get paginated list of campuses."""
     service = InfrastructureService(db)
     campuses = service.get_campuses(params, search)
+    
+    # Debug log
+    print(f"=== ENDPOINT DEBUG ===")
+    print(f"Campuses type: {type(campuses)}")
+    print(f"Items type: {type(campuses.items[0]) if campuses.items else 'No items'}")
+    if campuses.items and isinstance(campuses.items[0], dict):
+        print(f"First campus environments_count: {campuses.items[0].get('environments_count', 'NOT FOUND')}")
+    print(f"=== END ENDPOINT DEBUG ===")
 
     return SuccessResponse(
         data=campuses, message="Campuses retrieved successfully", errors=None
@@ -122,18 +130,15 @@ async def delete_campus(
 @router.get("/classrooms", response_model=SuccessResponse[Page[Classroom]])
 async def get_classrooms(
     params: PaginationParams = Depends(get_pagination_params),
-    search: Optional[str] = Query(None, description="Search in room number or type"),
+    search: Optional[str] = Query(None, description="Search in room number"),
     campus_id: Optional[int] = Query(None, description="Filter by campus"),
-    classroom_type: Optional[str] = Query(None, description="Filter by classroom type"),
-    min_capacity: Optional[int] = Query(None, description="Minimum capacity"),
-    max_capacity: Optional[int] = Query(None, description="Maximum capacity"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> SuccessResponse[Page[Classroom]]:
     """Get paginated list of classrooms."""
     service = InfrastructureService(db)
     classrooms = service.get_classrooms(
-        params, search, campus_id, classroom_type, min_capacity, max_capacity
+        params, search, campus_id
     )
 
     return SuccessResponse(
@@ -207,14 +212,13 @@ async def delete_classroom(
 async def get_classroom_availability(
     day_time_block_id: int = Query(..., description="Day-time block ID"),
     quarter_id: int = Query(..., description="Quarter ID"),
-    min_capacity: Optional[int] = Query(None, description="Minimum required capacity"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> SuccessResponse[List[ClassroomAvailability]]:
     """Get available classrooms for a specific time slot."""
     service = InfrastructureService(db)
     availability = service.get_classroom_availability(
-        day_time_block_id, quarter_id, min_capacity
+        day_time_block_id, quarter_id
     )
 
     return SuccessResponse(

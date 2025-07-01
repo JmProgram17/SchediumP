@@ -6,8 +6,6 @@ export interface Environment {
   // Estructura del backend (classroom)
   classroom_id: number
   room_number: string
-  classroom_type: string
-  capacity: number
   campus_id: number
   campus?: {
     campus_id: number
@@ -25,7 +23,6 @@ export interface EnvironmentCreate {
   name: string
   code: string
   type: EnvironmentType
-  capacity: number
   campus_id: number
   floor?: string
   building?: string
@@ -55,8 +52,6 @@ export interface EnvironmentFilters {
   type?: EnvironmentType
   active?: boolean
   available_for_scheduling?: boolean
-  min_capacity?: number
-  max_capacity?: number
   equipment?: string[]
 }
 
@@ -67,8 +62,6 @@ export interface EnvironmentStats {
   available_for_scheduling: number
   environments_by_type: Record<EnvironmentType, number>
   environments_by_campus: Record<string, number>
-  average_capacity: number
-  total_capacity: number
 }
 
 export interface EnvironmentListParams {
@@ -79,9 +72,7 @@ export interface EnvironmentListParams {
   type?: EnvironmentType
   active?: boolean
   available_for_scheduling?: boolean
-  min_capacity?: number
-  max_capacity?: number
-  sort_by?: 'name' | 'code' | 'type' | 'capacity' | 'created_at'
+  sort_by?: 'name' | 'code' | 'type' | 'created_at'
   sort_order?: 'asc' | 'desc'
 }
 

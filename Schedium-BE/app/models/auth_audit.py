@@ -5,7 +5,7 @@ Modelo para auditoría de métodos de autenticación
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.database import Base
 from datetime import datetime
 
 
@@ -19,11 +19,11 @@ class AuthMethodAudit(Base):
     audit_id = Column(Integer, primary_key=True, index=True)
     
     # Usuario objetivo (el usuario que se está creando/modificando)
-    target_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    target_user_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)
     target_user = relationship("User", foreign_keys=[target_user_id])
     
     # Usuario que ejecuta la acción (admin/coordinador)
-    admin_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    admin_user_id = Column(Integer, ForeignKey("user.user_id"), nullable=True)
     admin_user = relationship("User", foreign_keys=[admin_user_id])
     
     # Método utilizado
@@ -40,7 +40,7 @@ class AuthMethodAudit(Base):
     reason = Column(String(255), nullable=True)  # 'email_service_down', 'user_preference', 'emergency'
     
     # Información adicional como JSON
-    metadata = Column(JSON, nullable=True)  # {'password_length': 16, 'email_sent': True, 'expires_at': '...'}
+    audit_metadata = Column(JSON, nullable=True)  # {'password_length': 16, 'email_sent': True, 'expires_at': '...'}
     
     # Banderas especiales
     visible_password_shown = Column(Boolean, default=False)  # Si se mostró contraseña al admin
@@ -70,7 +70,7 @@ class AuthMethodAudit(Base):
         success: bool = True,
         reason: str = None,
         visible_password_shown: bool = False,
-        metadata: dict = None,
+        audit_metadata: dict = None,
         ip_address: str = None,
         user_agent: str = None,
         session_id: str = None,
@@ -87,7 +87,7 @@ class AuthMethodAudit(Base):
             success=success,
             reason=reason,
             visible_password_shown=visible_password_shown,
-            metadata=metadata,
+            audit_metadata=audit_metadata,
             ip_address=ip_address,
             user_agent=user_agent,
             session_id=session_id,
@@ -102,7 +102,7 @@ class AuthMethodAudit(Base):
         auth_method: str = 'magic_link',
         success: bool = True,
         reason: str = None,
-        metadata: dict = None,
+        audit_metadata: dict = None,
         ip_address: str = None,
         user_agent: str = None,
         error_message: str = None
@@ -117,7 +117,7 @@ class AuthMethodAudit(Base):
             action='password_reset',
             success=success,
             reason=reason,
-            metadata=metadata,
+            audit_metadata=audit_metadata,
             ip_address=ip_address,
             user_agent=user_agent,
             error_message=error_message
@@ -169,7 +169,7 @@ class AuthMethodStats(Base):
     avg_time_to_password_change = Column(Integer, nullable=True)  # En horas
     
     # Metadatos adicionales
-    metadata = Column(JSON, nullable=True)
+    stats_metadata = Column(JSON, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())

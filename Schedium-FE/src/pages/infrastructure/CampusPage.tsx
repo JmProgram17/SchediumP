@@ -34,7 +34,7 @@ export function CampusPage() {
       <CampusList
         onCreate={handleCreate}
         onEdit={handleEdit}
-        onDetail={handleDetail}
+        onView={handleDetail}
       />
 
       <CampusModal

@@ -36,6 +36,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { AuthGuard } from '@/components/guards/AuthGuard'
 import { MainLayout } from '@/layouts/MainLayout'
 import { ROUTES } from '@/constants/routes.constants'
+import { AcademicConfigPage } from '@/features/academic-config'
 
 export const AppRouter = () => {
   return (
@@ -74,6 +75,7 @@ export const AppRouter = () => {
         <Route path={ROUTES.SCHEDULING.SCHEDULES} element={<AuthGuard><MainLayout><SchedulesPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.SCHEDULING.CONFLICTS} element={<AuthGuard><MainLayout><ConflictsPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.SCHEDULING.CALENDAR} element={<AuthGuard><MainLayout><CalendarPage /></MainLayout></AuthGuard>} />
+        <Route path={ROUTES.ACADEMIC_CONFIG.MAIN} element={<AuthGuard><MainLayout><AcademicConfigPage /></MainLayout></AuthGuard>} />
         <Route path={ROUTES.PROFILE} element={<AuthGuard><MainLayout><ProfilePage /></MainLayout></AuthGuard>} />
       </Routes>
     </BrowserRouter>

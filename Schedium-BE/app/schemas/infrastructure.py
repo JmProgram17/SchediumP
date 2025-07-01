@@ -15,6 +15,9 @@ from app.utils.validators import validate_phone
 class CampusBase(BaseSchema):
     """Base campus schema."""
 
+    name: str = Field(
+        ..., min_length=1, max_length=100, description="Campus name"
+    )
     address: str = Field(
         ..., min_length=5, max_length=255, description="Campus address"
     )
@@ -38,6 +41,7 @@ class CampusCreate(CampusBase):
 class CampusUpdate(BaseSchema):
     """Schema for updating a campus."""
 
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
     address: Optional[str] = Field(None, min_length=5, max_length=255)
     phone_number: Optional[str] = Field(None, max_length=20)
     email: Optional[EmailStr] = None
@@ -47,6 +51,15 @@ class Campus(CampusBase, TimestampSchema):
     """Campus schema for API responses."""
 
     campus_id: int = Field(..., description="Campus ID")
+    # Explicitly add environments_count field
+    environments_count: int = Field(default=0, description="Number of environments in this campus")
+    
+    # Override model_dump to ensure environments_count is included
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if hasattr(self, 'environments_count'):
+            data['environments_count'] = self.environments_count
+        return data
 
 
 # Classroom Schemas
@@ -56,9 +69,7 @@ class ClassroomBase(BaseSchema):
     room_number: str = Field(
         ..., min_length=1, max_length=20, description="Room number"
     )
-    capacity: int = Field(..., gt=0, le=200, description="Student capacity")
     campus_id: int = Field(..., description="Campus ID")
-    classroom_type: str = Field("Standard", max_length=50, description="Classroom type")
 
 
 class ClassroomCreate(ClassroomBase):
@@ -71,9 +82,7 @@ class ClassroomUpdate(BaseSchema):
     """Schema for updating a classroom."""
 
     room_number: Optional[str] = Field(None, min_length=1, max_length=20)
-    capacity: Optional[int] = Field(None, gt=0, le=200)
     campus_id: Optional[int] = None
-    classroom_type: Optional[str] = Field(None, max_length=50)
 
 
 class Classroom(ClassroomBase, TimestampSchema):
@@ -118,7 +127,6 @@ class ClassroomAvailability(BaseSchema):
     classroom_id: int = Field(..., description="Classroom ID")
     room_number: str = Field(..., description="Room number")
     campus: str = Field(..., description="Campus address")
-    capacity: int = Field(..., description="Classroom capacity")
     is_available: bool = Field(..., description="Availability status")
     day: str = Field(..., description="Day of week")
     time_block: str = Field(..., description="Time block")

@@ -473,14 +473,6 @@ class SchedulingService:
                         f"({total_hours:.1f}/{instructor.contract.hour_limit} hours)"
                     )
 
-        # Check classroom capacity
-        classroom = self.classroom_repo.get(schedule_in.classroom_id)
-        group = self.group_repo.get(schedule_in.group_id)
-        if classroom and group and classroom.capacity < group.capacity:
-            warnings.append(
-                f"Classroom capacity ({classroom.capacity}) is less than "
-                f"group size ({group.capacity})"
-            )
 
         return ScheduleValidation(
             is_valid=len(conflicts) == 0, conflicts=conflicts, warnings=warnings

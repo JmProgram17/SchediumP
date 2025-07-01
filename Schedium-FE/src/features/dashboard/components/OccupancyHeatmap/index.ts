@@ -1,0 +1,1 @@
+export { OccupancyHeatmap, default } from './OccupancyHeatmap'

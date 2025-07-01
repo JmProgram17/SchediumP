@@ -17,6 +17,7 @@ class Campus(Base, TimeStampMixin):
     __allow_unmapped__ = True
 
     campus_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
     address = Column(String(255), nullable=False)
     phone_number = Column(String(20))
     email = Column(String(100), index=True)
@@ -25,7 +26,7 @@ class Campus(Base, TimeStampMixin):
     classrooms = relationship("Classroom", back_populates="campus")
 
     def __repr__(self) -> str:
-        return f"<Campus(id={self.campus_id}, address={self.address})>"
+        return f"<Campus(id={self.campus_id}, name={self.name})>"
 
 
 class Classroom(Base, TimeStampMixin):
@@ -37,11 +38,9 @@ class Classroom(Base, TimeStampMixin):
 
     classroom_id = Column(Integer, primary_key=True, autoincrement=True)
     room_number = Column(String(20), nullable=False)
-    capacity = Column(Integer, nullable=False)
     campus_id = Column(
         Integer, ForeignKey("campus.campus_id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    classroom_type = Column(String(50), default="Standard")
 
     # Relationships
     campus = relationship("Campus", back_populates="classrooms")

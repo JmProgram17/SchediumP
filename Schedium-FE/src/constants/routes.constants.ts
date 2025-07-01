@@ -52,6 +52,17 @@ export const ROUTES = {
     CALENDAR: '/scheduling/calendar',
   },
   
+  // Academic Configuration module
+  ACADEMIC_CONFIG: {
+    BASE: '/academic-config',
+    MAIN: '/configuracion-academica',
+    QUARTERS: '/academic-config/quarters',
+    TIME_BLOCKS: '/academic-config/time-blocks',
+    DAYS: '/academic-config/days',
+    SETTINGS: '/academic-config/settings',
+    TRANSITION: '/academic-config/transition',
+  },
+  
   // Admin routes
   ADMIN: {
     BASE: '/admin',

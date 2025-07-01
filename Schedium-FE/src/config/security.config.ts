@@ -148,6 +148,10 @@ export const API_SECURITY_CONFIG = {
     '/api/v1/auth/reset-password',
     '/api/v1/health',
     '/api/v1/docs',
+    // Academic Config GET endpoints (read-only)
+    '/api/v1/academic-config/quarters',
+    '/api/v1/academic-config/time-blocks',
+    '/api/v1/academic-config/days',
     // Also include without prefix for backward compatibility
     '/auth/login',
     '/auth/login-json',
@@ -156,6 +160,9 @@ export const API_SECURITY_CONFIG = {
     '/auth/reset-password',
     '/health',
     '/docs',
+    '/academic-config/quarters',
+    '/academic-config/time-blocks',
+    '/academic-config/days',
     // Include minimal paths
     '/login',
     '/login-json',

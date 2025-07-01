@@ -209,59 +209,61 @@ class AuthStrategyService {
       // Fallback a simulación si el backend falla
       console.log('Backend error, using fallback simulation...')
       
-      const mockUser = {
-        user_id: Date.now(),
-        email: data.email,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        role: {
-          role_id: data.role_id,
-          name: 'Usuario'
+      try {
+        const mockUser = {
+          user_id: Date.now(),
+          email: data.email,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          role: {
+            role_id: data.role_id,
+            name: 'Usuario'
+          }
         }
-      }
 
-      // Verificar métodos disponibles
-      const availableMethods = await this.checkAvailableMethods()
-      
-      // Decidir método
-      const context: AuthDecisionContext = {
-        emailServiceAvailable: availableMethods.magicLink.available,
-        userHasValidEmail: this.isValidEmail(data.email),
-        adminPreference: data.authStrategy?.preferredMethod,
-        isUrgent: false
-      }
-      
-      const method = await this.decideAuthMethod(context)
-      
-      // Aplicar método
-      let authResult: AuthMethodResult
-      
-      switch (method) {
-        case 'magic-link':
-          authResult = await this.applyMagicLinkMethod(mockUser)
-          break
-        case 'temp-email':
-          authResult = await this.applyTempEmailMethod(mockUser)
-          break
-        case 'visible-password':
-        default:
-          authResult = await this.applyVisiblePasswordMethod(mockUser)
-          break
-      }
-
-      return {
-        user: mockUser,
-        authResult,
-        audit: {
-          method_used: method,
-          timestamp: new Date().toISOString(),
-          admin_id: 1, // TODO: Obtener del contexto real
-          warnings: authResult.warnings
+        // Verificar métodos disponibles
+        const availableMethods = await this.checkAvailableMethods()
+        
+        // Decidir método
+        const context: AuthDecisionContext = {
+          emailServiceAvailable: availableMethods.magicLink.available,
+          userHasValidEmail: this.isValidEmail(data.email),
+          adminPreference: data.authStrategy?.preferredMethod,
+          isUrgent: false
         }
+        
+        const method = await this.decideAuthMethod(context)
+        
+        // Aplicar método
+        let authResult: AuthMethodResult
+        
+        switch (method) {
+          case 'magic-link':
+            authResult = await this.applyMagicLinkMethod(mockUser)
+            break
+          case 'temp-email':
+            authResult = await this.applyTempEmailMethod(mockUser)
+            break
+          case 'visible-password':
+          default:
+            authResult = await this.applyVisiblePasswordMethod(mockUser)
+            break
+        }
+
+        return {
+          user: mockUser,
+          authResult,
+          audit: {
+            method_used: method,
+            timestamp: new Date().toISOString(),
+            admin_id: 1, // TODO: Obtener del contexto real
+            warnings: authResult.warnings
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback simulation:', fallbackError)
+        throw fallbackError
       }
-    } catch (error) {
-      console.error('Error creating user with strategy:', error)
-      throw error
     }
   }
 

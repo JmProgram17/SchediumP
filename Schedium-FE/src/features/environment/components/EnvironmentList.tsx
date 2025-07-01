@@ -15,7 +15,6 @@ import {
   Eye,
   Building,
   MapPin,
-  Users,
   Monitor
 } from 'lucide-react'
 
@@ -95,20 +94,6 @@ export const EnvironmentList: React.FC<EnvironmentListProps> = ({
     exportData.mutate({ query, format })
   }
 
-  const getTypeLabel = (type: string) => {
-    const labels = {
-      'Standard': 'Estándar',
-      'Laboratory': 'Laboratorio', 
-      'Workshop': 'Taller',
-      'Auditorium': 'Auditorio',
-      'Library': 'Biblioteca',
-      'Office': 'Oficina',
-      'Meeting Room': 'Sala de Reuniones',
-      'Computer Lab': 'Lab. Cómputo',
-      'Sports': 'Deportivo'
-    }
-    return labels[type as keyof typeof labels] || type
-  }
 
   if (error) {
     return (
@@ -209,9 +194,7 @@ export const EnvironmentList: React.FC<EnvironmentListProps> = ({
                   <tr>
                     <th className="text-left p-4 font-medium text-gray-900">Código</th>
                     <th className="text-left p-4 font-medium text-gray-900">Ambiente</th>
-                    <th className="text-left p-4 font-medium text-gray-900">Tipo</th>
                     <th className="text-left p-4 font-medium text-gray-900">Sede</th>
-                    <th className="text-left p-4 font-medium text-gray-900">Capacidad</th>
                     <th className="w-20 p-4"></th>
                   </tr>
                 </thead>
@@ -235,24 +218,13 @@ export const EnvironmentList: React.FC<EnvironmentListProps> = ({
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className="font-medium">Aula {environment.room_number}</span>
-                          <span className="text-sm text-gray-500">Tipo: {environment.classroom_type}</span>
+                          <span className="text-sm text-gray-500">Código: {environment.room_number}</span>
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant="outline" size="sm">
-                          {getTypeLabel(environment.classroom_type)}
-                        </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-gray-400" />
                           <span>{environment.campus?.address || 'Sin sede'}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-gray-400" />
-                          <span>{environment.capacity} personas</span>
                         </div>
                       </td>
                       <td className="p-4">
