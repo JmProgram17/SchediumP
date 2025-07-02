@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal React Test</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { border-color: green; background: #f0fff0; }
+        .error { border-color: red; background: #fff0f0; }
+        .loading { border-color: orange; background: #fffaf0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Minimal React Mount Test</h1>
+    
+    <div class="test" id="test-1">
+        <h3>Test 1: HTML Response</h3>
+        <p id="html-status">Testing...</p>
+        <details id="html-details">
+            <summary>HTML Content</summary>
+            <pre id="html-content"></pre>
+        </details>
+    </div>
+
+    <div class="test" id="test-2">
+        <h3>Test 2: Direct React Mount</h3>
+        <p id="react-status">Testing...</p>
+        <div id="react-mount"></div>
+    </div>
+
+    <div class="test" id="test-3">
+        <h3>Test 3: Console Errors</h3>
+        <p id="error-status">Monitoring...</p>
+        <ul id="error-list"></ul>
+    </div>
+
+    <script>
+        // Test 1: Check HTML response
+        async function testHTML() {
+            try {
+                const response = await fetch('http://localhost:3000/login');
+                const html = await response.text();
+                
+                document.getElementById('html-content').textContent = html;
+                
+                const hasRoot = html.includes('id="root"');
+                const hasScript = html.includes('/src/main.tsx');
+                const hasErrors = html.includes('Error') || html.includes('error');
+                
+                let status = `✅ Response OK (${response.status})\n`;
+                status += `${hasRoot ? '✅' : '❌'} Root element found\n`;
+                status += `${hasScript ? '✅' : '❌'} Main script found\n`;
+                status += `${!hasErrors ? '✅' : '⚠️'} No obvious errors`;
+                
+                document.getElementById('html-status').textContent = status;
+                document.getElementById('test-1').className = 'test success';
+                
+            } catch (error) {
+                document.getElementById('html-status').textContent = `❌ Failed: ${error.message}`;
+                document.getElementById('test-1').className = 'test error';
+            }
+        }
+
+        // Test 2: Try to mount React directly
+        async function testReactMount() {
+            try {
+                // Create a simple React element inline
+                const reactScript = document.createElement('script');
+                reactScript.type = 'module';
+                reactScript.textContent = `
+                    import React from 'http://localhost:3000/node_modules/react/index.js';
+                    import ReactDOM from 'http://localhost:3000/node_modules/react-dom/client.js';
+                    
+                    try {
+                        const root = ReactDOM.createRoot(document.getElementById('react-mount'));
+                        root.render(React.createElement('div', {}, 'React works!'));
+                        document.getElementById('react-status').textContent = '✅ React mounting works';
+                        document.getElementById('test-2').className = 'test success';
+                    } catch (error) {
+                        document.getElementById('react-status').textContent = '❌ React mount failed: ' + error.message;
+                        document.getElementById('test-2').className = 'test error';
+                    }
+                `;
+                document.head.appendChild(reactScript);
+                
+            } catch (error) {
+                document.getElementById('react-status').textContent = `❌ Script injection failed: ${error.message}`;
+                document.getElementById('test-2').className = 'test error';
+            }
+        }
+
+        // Test 3: Monitor errors
+        let errorCount = 0;
+        const errorList = document.getElementById('error-list');
+        
+        function addError(type, message) {
+            errorCount++;
+            const li = document.createElement('li');
+            li.textContent = `[${new Date().toLocaleTimeString()}] ${type}: ${message}`;
+            errorList.appendChild(li);
+            
+            document.getElementById('error-status').textContent = `${errorCount} errors detected`;
+            if (errorCount > 0) {
+                document.getElementById('test-3').className = 'test error';
+            }
+        }
+
+        window.addEventListener('error', (e) => {
+            addError('JS Error', `${e.message} at ${e.filename}:${e.lineno}`);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            addError('Promise Rejection', e.reason);
+        });
+
+        // Run tests
+        window.onload = function() {
+            testHTML();
+            setTimeout(testReactMount, 2000);
+            
+            // If no errors after 5 seconds, mark as success
+            setTimeout(() => {
+                if (errorCount === 0) {
+                    document.getElementById('error-status').textContent = '✅ No errors detected';
+                    document.getElementById('test-3').className = 'test success';
+                }
+            }, 5000);
+        };
+    </script>
+</body>
+</html>

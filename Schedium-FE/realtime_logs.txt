@@ -1,0 +1,21 @@
+
+> schedium-fe@0.0.0 dev
+> vite --host
+
+
+  VITE v5.4.19  ready in 243 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://10.0.2.15:3000/
+  ➜  Network: http://172.18.0.1:3000/
+9:05:19 AM [vite] page reload test-login-render.html
+9:07:51 AM [vite] page reload debug-react-mount.html
+9:08:36 AM [vite] page reload minimal-test.html
+9:09:10 AM [vite] page reload src/main.tsx
+9:09:32 AM [vite] page reload quick-test.html
+9:10:09 AM [vite] hmr update /src/main.tsx, /src/index.css
+9:11:02 AM [vite] page reload final-login-test.html
+9:13:53 AM [vite] hmr update /src/index.css, /src/main.tsx, /src/services/query/query-provider.tsx, /src/features/program/components/ProgramForm.tsx, /src/router/AppRouter.tsx, /src/pages/DashboardPage.tsx, /src/pages/auth/LoginPage.tsx, /src/pages/admin/AdminPage.tsx, /src/components/guards/AuthGuard.tsx, /src/pages/ProfilePage.tsx, /src/pages/ProgrammingPage.tsx, /src/layouts/MainLayout/components/Sidebar.tsx, /src/layouts/MainLayout/components/UserDropdown.tsx, /src/pages/auth/ForgotPasswordPage.tsx, /src/pages/auth/ResetPasswordPage.tsx, /src/components/AcademicIntegrityGuard.tsx, /src/features/academic-config/components/TimeBlockManagement.tsx, /src/features/coordination/components/CoordinationStats.tsx, /src/features/group/components/GroupList.tsx, /src/features/group/components/GroupForm.tsx, /src/pages/auth/SetPasswordPage.tsx, /src/pages/infrastructure/CampusPage.tsx, /src/features/campus/components/CampusList.tsx, /src/features/campus/components/CampusModal.tsx, /src/features/environment/components/EnvironmentModal.tsx, /src/pages/hr/CoordinationsPage.tsx, /src/features/coordination/components/CoordinationList.tsx, /src/features/coordination/components/CoordinationModal.tsx, /src/pages/hr/UsersPage.tsx, /src/features/user/components/UserStats.tsx, /src/features/user/components/UserList.tsx, /src/features/user/components/UserModalHybrid.tsx, /src/features/user/components/UserModal.tsx, /src/pages/infrastructure/EnvironmentsPage.tsx, /src/features/environment/components/EnvironmentList.tsx, /src/features/academic-config/components/QuarterManagement.tsx, /src/features/academic-config/components/ScheduleConfigSettings.tsx
+9:13:54 AM [vite] hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+9:13:54 AM [vite] hmr update /src/index.css
+9:14:17 AM [vite] page reload login-status.html

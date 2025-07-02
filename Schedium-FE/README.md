@@ -1,10 +1,21 @@
-# Schedium Frontend
+# Schedium Frontend - MVP
 
-Sistema de Gestión Académica para SENA CGMLTI - Frontend Application
+Sistema de Gestión Académica para SENA CGMLTI - Frontend Application (Versión MVP)
 
 ## 🚀 Descripción
 
-Schedium es una aplicación web moderna para la gestión académica del SENA CGMLTI. Este repositorio contiene el frontend de la aplicación, desarrollado con React, TypeScript y Vite.
+Schedium MVP es una aplicación web moderna para la gestión académica del SENA CGMLTI. Esta versión MVP contiene las funcionalidades core esenciales para un producto mínimo viable, desarrollado con React, TypeScript y Vite.
+
+## ✨ Funcionalidades MVP Incluidas
+
+- 🔐 **Autenticación y Autorización** - Sistema completo de usuarios y roles
+- 📊 **Dashboard Interactivo** - Métricas académicas en tiempo real
+- 📅 **Programación de Horarios** - Sistema avanzado de scheduling académico
+- 🎓 **Gestión Académica** - Cursos, programas, grupos estudiantiles
+- 👥 **Gestión de Recursos** - Estudiantes, instructores, coordinaciones
+- 🏢 **Infraestructura** - Campus, ambientes, departamentos
+- 📋 **Consultas y Reportes** - Sistema básico de reportes
+- 🎨 **Design System** - Componentes reutilizables con tema SENA
 
 ## 📋 Requisitos Previos
 
@@ -46,16 +57,16 @@ La aplicación estará disponible en `http://localhost:3000`
 docker-compose up
 ```
 
-## 📦 Scripts Disponibles
+## 📦 Scripts MVP Disponibles
 
 - `npm run dev` - Inicia el servidor de desarrollo
 - `npm run build` - Construye la aplicación para producción
 - `npm run preview` - Previsualiza la build de producción
-- `npm run test` - Ejecuta las pruebas unitarias
-- `npm run test:coverage` - Ejecuta las pruebas con reporte de cobertura
 - `npm run lint` - Ejecuta el linter
+- `npm run lint:fix` - Ejecuta el linter y corrige automáticamente
 - `npm run format` - Formatea el código con Prettier
 - `npm run typecheck` - Verifica los tipos de TypeScript
+- `npm run generate:crud` - Genera componentes CRUD básicos
 
 ## 🏗️ Arquitectura
 

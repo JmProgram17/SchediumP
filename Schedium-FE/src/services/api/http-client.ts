@@ -48,7 +48,7 @@ class HttpClient {
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest'
       },
-      withCredentials: false, // Simplified CORS for now
+      withCredentials: true, // Enable cookies for authentication
       maxBodyLength: SECURITY_CONFIG.API.MAX_REQUEST_SIZE,
       maxContentLength: SECURITY_CONFIG.API.MAX_REQUEST_SIZE,
     })
@@ -127,8 +127,11 @@ class HttpClient {
           context.userId = userInfo.user_id
           config.headers['X-User-ID'] = userInfo.user_id
         }
-      } else {
+        } else {
         console.warn(`⚠️ [HTTP] No valid token for protected endpoint: ${context.url}`)
+        console.log(`🍪 [HTTP] Relying on cookie authentication for: ${context.url}`)
+        // Ensure cookies are sent (already enabled in axios config)
+        config.withCredentials = true
       }
     } catch (error) {
       console.error(`❌ [HTTP] Failed to get access token for request: ${context.requestId}`, error)

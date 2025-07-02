@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Login Test - Schedium</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-panel { 
+            background: rgba(0,0,0,0.8); 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border: 1px solid #444;
+        }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+            font-weight: bold;
+        }
+        .success { background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; }
+        .error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; }
+        .warning { background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; }
+        .info { background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; }
+        iframe { 
+            width: 100%; 
+            height: 700px; 
+            border: 2px solid #444; 
+            border-radius: 8px; 
+            background: white;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #2563eb; }
+        .logs {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Final Login Rendering Test - Schedium</h1>
+        
+        <div class="test-panel">
+            <h3>📊 Status Dashboard</h3>
+            <div id="server-status" class="status info">🔄 Checking server...</div>
+            <div id="react-status" class="status info">🔄 Checking React mount...</div>
+            <div id="login-status" class="status info">🔄 Checking login form...</div>
+        </div>
+
+        <div class="test-panel">
+            <h3>🎮 Controls</h3>
+            <button onclick="runFullTest()">🔍 Run Full Test</button>
+            <button onclick="reloadIframe()">🔄 Reload Login</button>
+            <button onclick="clearLogs()">🗑️ Clear Logs</button>
+            <button onclick="inspectIframe()">🔧 Inspect Iframe</button>
+        </div>
+
+        <div class="test-panel">
+            <h3>🖥️ Live Login Page</h3>
+            <iframe id="login-iframe" src="http://localhost:3000/login"></iframe>
+        </div>
+
+        <div class="test-panel">
+            <h3>📋 Real-time Logs</h3>
+            <div class="logs" id="logs">Initializing test suite...\n</div>
+        </div>
+    </div>
+
+    <script>
+        let logBuffer = 'Initializing test suite...\n';
+        const logsEl = document.getElementById('logs');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = `[${timestamp}] ${message}\n`;
+            logBuffer += logLine;
+            logsEl.textContent = logBuffer;
+            logsEl.scrollTop = logsEl.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(id, message, type = 'info') {
+            const el = document.getElementById(id);
+            el.textContent = message;
+            el.className = `status ${type}`;
+        }
+
+        function clearLogs() {
+            logBuffer = 'Logs cleared.\n';
+            logsEl.textContent = logBuffer;
+        }
+
+        function reloadIframe() {
+            const iframe = document.getElementById('login-iframe');
+            log('🔄 Reloading iframe...');
+            iframe.src = iframe.src;
+        }
+
+        async function runFullTest() {
+            log('🚀 Starting comprehensive login test...');
+            
+            // Test 1: Server connectivity
+            try {
+                updateStatus('server-status', '🔄 Testing server...', 'info');
+                const response = await fetch('http://localhost:3000/login');
+                if (response.ok) {
+                    updateStatus('server-status', '✅ Server OK (200)', 'success');
+                    log('✅ Server responding correctly');
+                } else {
+                    updateStatus('server-status', `❌ Server Error (${response.status})`, 'error');
+                    log(`❌ Server error: ${response.status}`);
+                    return;
+                }
+            } catch (error) {
+                updateStatus('server-status', '❌ Server Offline', 'error');
+                log(`❌ Server connection failed: ${error.message}`);
+                return;
+            }
+
+            // Test 2: React mounting
+            try {
+                updateStatus('react-status', '🔄 Checking React...', 'info');
+                const response = await fetch('http://localhost:3000/login');
+                const html = await response.text();
+                
+                const hasRoot = html.includes('id="root"');
+                const hasMainScript = html.includes('/src/main.tsx');
+                const hasReactDevTools = html.includes('@react-refresh');
+                
+                if (hasRoot && hasMainScript) {
+                    updateStatus('react-status', '✅ React Setup OK', 'success');
+                    log('✅ React setup detected in HTML');
+                } else {
+                    updateStatus('react-status', '⚠️ React Setup Issues', 'warning');
+                    log(`⚠️ React setup issues - Root: ${hasRoot}, Script: ${hasMainScript}`);
+                }
+                
+                log(`📊 React indicators - Root: ${hasRoot}, Script: ${hasMainScript}, DevTools: ${hasReactDevTools}`);
+                
+            } catch (error) {
+                updateStatus('react-status', '❌ React Check Failed', 'error');
+                log(`❌ React check failed: ${error.message}`);
+            }
+
+            // Test 3: Login form detection
+            setTimeout(() => {
+                try {
+                    updateStatus('login-status', '🔄 Checking login form...', 'info');
+                    inspectIframe();
+                } catch (error) {
+                    updateStatus('login-status', '❌ Login Check Failed', 'error');
+                    log(`❌ Login form check failed: ${error.message}`);
+                }
+            }, 3000); // Wait for iframe to load
+        }
+
+        function inspectIframe() {
+            log('🔍 Inspecting iframe content...');
+            const iframe = document.getElementById('login-iframe');
+            
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                
+                if (!iframeDoc) {
+                    log('❌ Cannot access iframe content (CORS restriction)');
+                    updateStatus('login-status', '❌ CORS Blocked', 'error');
+                    return;
+                }
+
+                const root = iframeDoc.getElementById('root');
+                if (!root) {
+                    log('❌ No root element in iframe');
+                    updateStatus('login-status', '❌ No Root Element', 'error');
+                    return;
+                }
+
+                const rootContent = root.innerHTML;
+                log(`📊 Root element found, content length: ${rootContent.length} chars`);
+
+                if (rootContent.length === 0) {
+                    log('⚠️ Root element is empty - React may not have mounted');
+                    updateStatus('login-status', '⚠️ Empty Root (React not mounted)', 'warning');
+                } else {
+                    // Check for login form elements
+                    const hasLoginForm = rootContent.includes('login') || rootContent.includes('Login') || rootContent.includes('email') || rootContent.includes('password');
+                    const hasScheduliumBranding = rootContent.includes('Schedium') || rootContent.includes('schedium');
+                    const hasErrorMessage = rootContent.includes('error') || rootContent.includes('Error') || rootContent.includes('Failed');
+
+                    if (hasLoginForm) {
+                        updateStatus('login-status', '✅ Login Form Detected', 'success');
+                        log('✅ Login form elements found in DOM');
+                    } else if (hasScheduliumBranding) {
+                        updateStatus('login-status', '🔄 Schedium App Loaded', 'info');
+                        log('🔄 Schedium app loaded, but login form not detected');
+                    } else if (hasErrorMessage) {
+                        updateStatus('login-status', '❌ Error in App', 'error');
+                        log('❌ Error detected in application');
+                    } else {
+                        updateStatus('login-status', '❓ Unknown Content', 'warning');
+                        log('❓ Root has content but login form not identified');
+                    }
+
+                    // Log content preview
+                    const preview = rootContent.substring(0, 200).replace(/\n/g, ' ').replace(/\s+/g, ' ');
+                    log(`📝 Content preview: ${preview}...`);
+                }
+
+            } catch (error) {
+                log(`❌ Error inspecting iframe: ${error.message}`);
+                updateStatus('login-status', '❌ Inspection Failed', 'error');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('login-iframe').onload = function() {
+            log('📥 Iframe loaded completely');
+            setTimeout(inspectIframe, 1000); // Give React time to mount
+        };
+
+        document.getElementById('login-iframe').onerror = function() {
+            log('❌ Iframe failed to load');
+            updateStatus('login-status', '❌ Iframe Load Failed', 'error');
+        };
+
+        // Global error handling
+        window.addEventListener('error', (e) => {
+            log(`🚨 Global error: ${e.message} at ${e.filename}:${e.lineno}`);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            log(`🚨 Unhandled promise rejection: ${e.reason}`);
+        });
+
+        // Auto-start test when page loads
+        window.onload = function() {
+            log('✅ Test page loaded');
+            setTimeout(runFullTest, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import { QueryProvider } from '@/providers'
 import { Toaster } from 'react-hot-toast'
 import { AppRouter } from './router/AppRouter'
 import { ThemeProvider } from '@/design-system/themes/ThemeProvider'
@@ -13,36 +12,34 @@ const LoadingSpinner = () => (
 
 export function App() {
   return (
-    <QueryProvider>
-      <ThemeProvider>
-        <Suspense fallback={<LoadingSpinner />}>
-          <AppRouter />
-        </Suspense>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: 'var(--toast-bg, #ffffff)',
-              color: 'var(--toast-text, #1f2937)',
-              border: '1px solid var(--toast-border, #e5e7eb)',
+    <ThemeProvider>
+      <Suspense fallback={<LoadingSpinner />}>
+        <AppRouter />
+      </Suspense>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'var(--toast-bg, #ffffff)',
+            color: 'var(--toast-text, #1f2937)',
+            border: '1px solid var(--toast-border, #e5e7eb)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff',
             },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#ffffff',
-              },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#ffffff',
             },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#ffffff',
-              },
-            },
-          }}
-        />
-      </ThemeProvider>
-    </QueryProvider>
+          },
+        }}
+      />
+    </ThemeProvider>
   )
 }
 

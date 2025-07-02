@@ -29,6 +29,8 @@ import {
   useUpdateDayConfig,
   useActiveScheduleConfig
 } from '@/services/query/hooks/academic-config.hooks'
+import { useClassScheduleList } from '@/features/scheduling/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 import type { TimeBlock, TimeBlockCreate, DayConfig } from '@/services/api/academic-config.api'
 import { ScheduleConfigSettings } from './ScheduleConfigSettings'
 
@@ -49,6 +51,8 @@ export function TimeBlockManagement() {
   const [isCompactView, setIsCompactView] = useState<boolean>(true) // Default to compact view
   const [showDaysDropdown, setShowDaysDropdown] = useState<boolean>(false)
   const [showScheduleConfig, setShowScheduleConfig] = useState<boolean>(false)
+  const [operationProgress, setOperationProgress] = useState<string>('')
+  const [updatingDay, setUpdatingDay] = useState<number | null>(null)
   
   // Query hooks
   const { data: timeBlocksData, isLoading: isLoadingBlocks, error: blocksError } = useTimeBlocks()
@@ -60,6 +64,10 @@ export function TimeBlockManagement() {
   const deleteMutation = useDeleteTimeBlock()
   const updateTimeBlockMutation = useUpdateTimeBlock()
   const updateDayMutation = useUpdateDayConfig()
+  const queryClient = useQueryClient()
+  
+  // Check for existing schedules
+  const { data: existingSchedulesData } = useClassScheduleList({}, { enabled: true })
 
   const timeBlocks = timeBlocksData?.time_blocks || []
   const days = daysData?.days || []
@@ -150,57 +158,129 @@ export function TimeBlockManagement() {
 
   // Helper function for day configuration (used internally by handleApplyConfiguration)
   const updateDaysConfiguration = async () => {
-    const dayUpdatePromises = days.map(day => {
+    for (const day of days) {
       const shouldBeActive = selectedDays.includes(day.day_id)
       if (day.is_active !== shouldBeActive) {
-        return updateDayMutation.mutateAsync({
-          id: day.day_id,
-          data: { is_active: shouldBeActive }
-        })
+        try {
+          await updateDayMutation.mutateAsync({
+            id: day.day_id,
+            data: { is_active: shouldBeActive }
+          })
+          // Small delay to prevent API overload
+          await new Promise(resolve => setTimeout(resolve, 50))
+        } catch (error) {
+          console.warn(`Error updating day ${day.name}:`, error)
+          // Continue with other days
+        }
       }
-      return Promise.resolve()
-    })
-    
-    await Promise.all(dayUpdatePromises)
+    }
   }
 
   // Handle all configuration changes (time blocks + days) in one operation
   const handleApplyConfiguration = async () => {
+    // Check for existing schedules and warn user
+    const existingSchedules = (existingSchedulesData as any)?.items || []
+    
+    if (existingSchedules.length > 0) {
+      const confirmMessage = `⚠️ ADVERTENCIA: Se encontraron ${existingSchedules.length} horarios programados.\n\nCambiar la configuración académica puede afectar los horarios existentes.\n\n¿Desea continuar?`
+      
+      if (!window.confirm(confirmMessage)) {
+        toast.error('Operación cancelada por el usuario')
+        return
+      }
+      
+      console.log('🚨 User confirmed configuration change with existing schedules:', existingSchedules.length)
+    }
+    
     setIsApplying(true)
+    setOperationProgress('')
+    
+    // Debug: Check authentication state
+    console.log('🔐 DEBUG: Starting configuration apply')
+    console.log('🔐 DEBUG: Access token in localStorage:', localStorage.getItem('access_token') ? 'EXISTS' : 'MISSING')
+    console.log('🔐 DEBUG: Document cookies:', document.cookie)
     
     try {
       // Step 1: Always update days configuration first
+      setOperationProgress('Configurando días lectivos...')
       console.log('📅 Aplicando configuración de días...')
       await updateDaysConfiguration()
       
       // Step 2: Handle time blocks configuration
+      setOperationProgress('Preparando bloques de tiempo...')
       console.log('⏰ Aplicando configuración de bloques de tiempo...')
       
-      // Deactivate existing blocks (safer than deleting)
+      // Deactivate existing blocks sequentially (safer than deleting)
       if (timeBlocks.length > 0) {
-        const deactivatePromises = timeBlocks.map(block => 
-          updateTimeBlockMutation.mutateAsync({
-            id: block.time_block_id,
-            data: { is_active: false }
-          })
-        )
-        await Promise.all(deactivatePromises)
+        setOperationProgress(`Desactivando ${timeBlocks.length} bloques existentes...`)
+        console.log(`⏰ Desactivando ${timeBlocks.length} bloques existentes...`)
+        for (const block of timeBlocks) {
+          try {
+            await updateTimeBlockMutation.mutateAsync({
+              id: block.time_block_id,
+              data: { is_active: false }
+            })
+            // Small delay to prevent API overload
+            await new Promise(resolve => setTimeout(resolve, 150))
+          } catch (error) {
+            console.warn(`Error deactivating block ${block.time_block_id}:`, error)
+            // Continue with other blocks
+          }
+        }
       }
       
-      // Create new uniform blocks
+      // Create new uniform blocks sequentially
       const blocksToCreate = generateUniformBlocks()
       if (blocksToCreate.length > 0) {
-        await Promise.all(blocksToCreate.map(block => 
-          createMutation.mutateAsync(block as TimeBlockCreate)
-        ))
+        console.log(`⏰ Creando ${blocksToCreate.length} nuevos bloques...`)
+        for (let i = 0; i < blocksToCreate.length; i++) {
+          const block = blocksToCreate[i]
+          setOperationProgress(`Creando bloque ${i + 1} de ${blocksToCreate.length}...`)
+          try {
+            console.log(`🔧 DEBUG: Creating block ${i + 1}:`, block)
+            const result = await createMutation.mutateAsync(block as TimeBlockCreate)
+            console.log(`✅ Bloque ${i + 1}/${blocksToCreate.length} creado:`, result)
+            // Small delay to prevent API overload
+            await new Promise(resolve => setTimeout(resolve, 200))
+          } catch (error) {
+            console.error(`🚨 Error creating block ${i + 1}:`, error)
+            console.error(`🚨 Block data:`, block)
+            console.error(`🚨 Error response:`, (error as any)?.response)
+            throw error // Stop on creation errors
+          }
+        }
       }
       
-      toast.success('✅ Configuración de estructura horaria aplicada exitosamente')
+      setOperationProgress('Finalizando configuración...')
+      await new Promise(resolve => setTimeout(resolve, 500)) // Final delay
+      
+      // Invalidate programming-related caches
+      console.log('🔄 Invalidating programming caches after configuration change...')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['classSchedules'] }),
+        queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] }),
+        queryClient.invalidateQueries({ queryKey: ['scheduleData'] }),
+        queryClient.invalidateQueries({ queryKey: ['timeBlocks'] }),
+        queryClient.invalidateQueries({ queryKey: ['days'] })
+      ])
+      
+      const successMessage = existingSchedules.length > 0 
+        ? `✅ Configuración aplicada. ${existingSchedules.length} horarios existentes pueden requerir revisión.`
+        : '✅ Configuración de estructura horaria aplicada exitosamente'
+      
+      toast.success(successMessage)
       setIsApplying(false)
+      setOperationProgress('')
     } catch (error) {
-      console.error('Error applying configuration:', error)
+      console.error('🚨 Error applying configuration:', error)
+      console.error('🚨 Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        response: (error as any)?.response?.data,
+        status: (error as any)?.response?.status
+      })
       toast.error('❌ Error al aplicar la configuración')
       setIsApplying(false)
+      setOperationProgress('')
     }
   }
 
@@ -211,6 +291,47 @@ export function TimeBlockManagement() {
       setSelectedDays(activeDayIds)
     }
   }, [days])
+
+  // Handle individual day toggle with immediate API update
+  const handleDayToggle = async (dayId: number, isChecked: boolean) => {
+    setUpdatingDay(dayId)
+    
+    try {
+      // Update local state immediately for UI responsiveness
+      if (isChecked) {
+        setSelectedDays([...selectedDays, dayId])
+      } else {
+        setSelectedDays(selectedDays.filter(id => id !== dayId))
+      }
+
+      // Update in database immediately
+      await updateDayMutation.mutateAsync({
+        id: dayId,
+        data: { is_active: isChecked }
+      })
+
+      console.log(`✅ Day ${dayId} ${isChecked ? 'activated' : 'deactivated'} successfully`)
+      
+      // Show success toast
+      toast.success(`Día ${isChecked ? 'activado' : 'desactivado'} exitosamente`)
+      
+    } catch (error) {
+      console.error(`❌ Error updating day ${dayId}:`, error)
+      
+      // Revert local state on error
+      if (isChecked) {
+        setSelectedDays(selectedDays.filter(id => id !== dayId))
+      } else {
+        setSelectedDays([...selectedDays, dayId])
+      }
+      
+      // Show error toast with more details
+      const errorMessage = (error as any)?.response?.data?.detail || 'Error desconocido'
+      toast.error(`Error al ${isChecked ? 'activar' : 'desactivar'} el día: ${errorMessage}`)
+    } finally {
+      setUpdatingDay(null)
+    }
+  }
 
   // Initialize time range from schedule configuration
   useEffect(() => {
@@ -385,24 +506,24 @@ export function TimeBlockManagement() {
                               type="checkbox"
                               checked={selectedDays.includes(day.day_id)}
                               onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedDays([...selectedDays, day.day_id])
-                                } else {
-                                  setSelectedDays(selectedDays.filter(id => id !== day.day_id))
-                                }
+                                handleDayToggle(day.day_id, e.target.checked)
                               }}
-                              disabled={isApplying}
+                              disabled={isApplying || updatingDay === day.day_id}
                               className="sr-only"
                             />
                             <div className={cn(
                               "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors mr-3",
-                              selectedDays.includes(day.day_id)
+                              updatingDay === day.day_id
+                                ? "bg-yellow-100 border-yellow-400 dark:bg-yellow-900/30 dark:border-yellow-600"
+                                : selectedDays.includes(day.day_id)
                                 ? "bg-blue-600 border-blue-600"
                                 : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                             )}>
-                              {selectedDays.includes(day.day_id) && (
+                              {updatingDay === day.day_id ? (
+                                <div className="w-2 h-2 border border-yellow-600 border-t-transparent rounded-full animate-spin" />
+                              ) : selectedDays.includes(day.day_id) ? (
                                 <Check className="w-3 h-3 text-white" />
-                              )}
+                              ) : null}
                             </div>
                             <span className="text-sm text-gray-900 dark:text-gray-100">
                               {getDayNameInSpanish(day.name)}
@@ -496,7 +617,7 @@ export function TimeBlockManagement() {
                 {isApplying ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Aplicando...
+                    {operationProgress || 'Aplicando...'}
                   </>
                 ) : (
                   "Aplicar Configuración"

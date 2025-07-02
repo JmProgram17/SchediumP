@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug React Mount - Schedium Login</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #000; color: #0f0; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #333; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .warning { color: #ff0; }
+        .info { color: #00f; }
+        .log { background: #111; padding: 10px; margin: 5px 0; border-left: 3px solid #555; }
+        button { background: #333; color: #fff; border: 1px solid #555; padding: 5px 10px; margin: 5px; cursor: pointer; }
+        button:hover { background: #555; }
+        #console { height: 400px; overflow-y: auto; background: #000; border: 1px solid #333; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug React Mount - Schedium Login</h1>
+    
+    <div class="section">
+        <h3>📋 Console Logs en Tiempo Real</h3>
+        <button onclick="clearConsole()">🗑️ Limpiar</button>
+        <button onclick="testMount()">🧪 Test Manual</button>
+        <button onclick="inspectDOM()">🔍 Inspeccionar DOM</button>
+        <div id="console"></div>
+    </div>
+
+    <div class="section">
+        <h3>🎯 Test Frame del Login</h3>
+        <iframe id="login-frame" src="http://localhost:3000/login" 
+                style="width: 100%; height: 500px; border: 1px solid #555; background: #fff;">
+        </iframe>
+    </div>
+
+    <script>
+        let logCount = 0;
+        
+        function log(level, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEl = document.createElement('div');
+            logEl.className = `log ${level}`;
+            logEl.innerHTML = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+            if (data) {
+                logEl.innerHTML += `<br>&nbsp;&nbsp;&nbsp;&nbsp;Data: ${JSON.stringify(data, null, 2)}`;
+            }
+            document.getElementById('console').appendChild(logEl);
+            document.getElementById('console').scrollTop = document.getElementById('console').scrollHeight;
+            logCount++;
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '';
+            logCount = 0;
+        }
+
+        // Capturar todos los errores
+        window.addEventListener('error', (e) => {
+            log('error', `Global Error: ${e.message}`, {
+                filename: e.filename,
+                lineno: e.lineno,
+                colno: e.colno,
+                stack: e.error?.stack
+            });
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            log('error', `Unhandled Promise Rejection: ${e.reason}`, {
+                reason: e.reason,
+                promise: e.promise
+            });
+        });
+
+        // Test manual de montaje
+        async function testMount() {
+            log('info', 'Iniciando test manual de montaje...');
+            
+            try {
+                // 1. Verificar servidor
+                const response = await fetch('http://localhost:3000/login');
+                log('success', `Servidor responde: ${response.status}`);
+                
+                // 2. Obtener HTML
+                const html = await response.text();
+                log('info', `HTML size: ${html.length} caracteres`);
+                
+                // 3. Buscar elementos clave
+                const hasRoot = html.includes('id="root"');
+                const hasVite = html.includes('/@vite/client');
+                const hasMain = html.includes('/src/main.tsx');
+                const hasReact = html.includes('react');
+                
+                log(hasRoot ? 'success' : 'error', `Root element: ${hasRoot ? 'FOUND' : 'MISSING'}`);
+                log(hasVite ? 'success' : 'error', `Vite client: ${hasVite ? 'FOUND' : 'MISSING'}`);
+                log(hasMain ? 'success' : 'error', `Main script: ${hasMain ? 'FOUND' : 'MISSING'}`);
+                log(hasReact ? 'success' : 'warning', `React mentions: ${hasReact ? 'FOUND' : 'MISSING'}`);
+                
+                // 4. Buscar errores específicos
+                const errors = [];
+                if (html.includes('Error')) errors.push('Generic error found');
+                if (html.includes('404')) errors.push('404 error found');
+                if (html.includes('500')) errors.push('500 error found');
+                if (html.includes('Cannot resolve')) errors.push('Module resolution error');
+                if (html.includes('Failed to')) errors.push('Failed operation found');
+                
+                if (errors.length > 0) {
+                    errors.forEach(err => log('error', err));
+                } else {
+                    log('success', 'No obvious errors in HTML');
+                }
+                
+                // 5. Analizar scripts
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const scripts = doc.querySelectorAll('script');
+                log('info', `Scripts found: ${scripts.length}`);
+                
+                scripts.forEach((script, i) => {
+                    if (script.src) {
+                        log('info', `Script ${i + 1}: ${script.src}`);
+                    } else if (script.textContent) {
+                        log('info', `Inline script ${i + 1}: ${script.textContent.substring(0, 100)}...`);
+                    }
+                });
+                
+            } catch (error) {
+                log('error', `Test failed: ${error.message}`, error);
+            }
+        }
+
+        // Inspeccionar DOM del iframe
+        function inspectDOM() {
+            log('info', 'Inspeccionando DOM del iframe...');
+            
+            const iframe = document.getElementById('login-frame');
+            
+            try {
+                // Intentar acceder al contenido del iframe
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                
+                if (!iframeDoc) {
+                    log('error', 'No se puede acceder al documento del iframe (CORS)');
+                    return;
+                }
+                
+                // Verificar elementos básicos
+                const root = iframeDoc.getElementById('root');
+                const body = iframeDoc.body;
+                const scripts = iframeDoc.querySelectorAll('script');
+                
+                log(root ? 'success' : 'error', `Root element en iframe: ${root ? 'FOUND' : 'MISSING'}`);
+                
+                if (root) {
+                    log('info', `Root innerHTML length: ${root.innerHTML.length}`);
+                    if (root.innerHTML.length === 0) {
+                        log('warning', 'Root element está vacío - React no se montó');
+                    } else {
+                        log('success', 'Root element tiene contenido');
+                        log('info', `Root content preview: ${root.innerHTML.substring(0, 200)}...`);
+                    }
+                }
+                
+                if (body) {
+                    log('info', `Body classes: ${body.className || 'none'}`);
+                    log('info', `Body children count: ${body.children.length}`);
+                }
+                
+                log('info', `Scripts en iframe: ${scripts.length}`);
+                
+                // Verificar consola del iframe
+                const iframeWindow = iframe.contentWindow;
+                if (iframeWindow && iframeWindow.console) {
+                    // Intentar capturar errores del iframe
+                    const originalError = iframeWindow.console.error;
+                    iframeWindow.console.error = function(...args) {
+                        log('error', `Iframe Console Error: ${args.join(' ')}`);
+                        originalError.apply(this, args);
+                    };
+                }
+                
+            } catch (error) {
+                log('error', `Error inspeccionando iframe: ${error.message}`);
+            }
+        }
+
+        // Monitorear carga del iframe
+        document.getElementById('login-frame').onload = function() {
+            log('success', 'Iframe cargado completamente');
+            
+            // Esperar un poco para que React renderice
+            setTimeout(() => {
+                inspectDOM();
+            }, 2000);
+        };
+
+        document.getElementById('login-frame').onerror = function(e) {
+            log('error', 'Error cargando iframe', e);
+        };
+
+        // Monitorear cambios en el iframe
+        function monitorIframe() {
+            const iframe = document.getElementById('login-frame');
+            let lastCheck = '';
+            
+            setInterval(() => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc) {
+                        const root = iframeDoc.getElementById('root');
+                        if (root) {
+                            const currentContent = root.innerHTML;
+                            if (currentContent !== lastCheck) {
+                                log('info', `Root content changed: ${currentContent.length} chars`);
+                                lastCheck = currentContent;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Silently ignore CORS errors
+                }
+            }, 1000);
+        }
+
+        // Inicializar
+        window.onload = function() {
+            log('success', 'Debug page loaded');
+            log('info', 'Waiting for iframe to load...');
+            monitorIframe();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  api:
+    # Override the command to use our enhanced startup script
+    command: /app/scripts/startup_with_migrations.sh
+    volumes:
+      # Ensure the startup script is available in the container
+      - ./scripts/startup_with_migrations.sh:/app/scripts/startup_with_migrations.sh
+    environment:
+      # Ensure migrations run in the correct environment
+      - ALEMBIC_CONFIG=/app/alembic.ini
+      - PYTHONPATH=/app

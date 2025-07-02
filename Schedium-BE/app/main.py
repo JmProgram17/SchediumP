@@ -20,6 +20,7 @@ from app.core.middleware.security import SecurityMiddleware
 from app.core.security.cors import configure_cors
 from app.core.security.headers import SecurityHeadersMiddleware
 from app.database import init_db
+from app.core.migrations import init_migrations
 # Import all models to register them with SQLAlchemy
 import app.models  # noqa: F401
 
@@ -40,6 +41,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize database
     init_db()
+    
+    # Run migrations automatically
+    logger.info("Running database migrations...")
+    migration_success = init_migrations()
+    if not migration_success:
+        logger.warning("Some migrations may have failed, but continuing application startup")
 
     yield
 

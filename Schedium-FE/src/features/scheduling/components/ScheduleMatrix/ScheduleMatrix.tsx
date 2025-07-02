@@ -3,7 +3,7 @@
  * Supports drag & drop, real-time updates, and performance optimization
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { FixedSizeGrid as Grid } from 'react-window'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -11,7 +11,6 @@ import {
   Calendar, 
   AlertTriangle, 
   Users, 
-  MapPin,
   Zap,
   ChevronLeft,
   ChevronRight
@@ -29,12 +28,13 @@ import {
   TimeSlot, 
   ScheduleConflict, 
   ConflictType,
-  ScheduleStatus,
   Priority 
 } from '../../types'
+import { useTimeBlocks, useActiveScheduleConfig, useDays } from '@/services/query/hooks/academic-config.hooks'
 
-// Time configuration
-const TIME_SLOTS = [
+// Time configuration - Now dynamically loaded from academic configuration
+// Default fallback for initial render or if config is not available
+const DEFAULT_TIME_SLOTS = [
   { start: '06:00', end: '07:00' },
   { start: '07:00', end: '08:00' },
   { start: '08:00', end: '09:00' },
@@ -53,7 +53,8 @@ const TIME_SLOTS = [
   { start: '21:00', end: '22:00' }
 ]
 
-const DAYS_OF_WEEK = [
+// Default days of week - will be replaced by dynamic configuration
+const DEFAULT_DAYS_OF_WEEK = [
   DayOfWeek.MONDAY,
   DayOfWeek.TUESDAY,
   DayOfWeek.WEDNESDAY,
@@ -75,7 +76,6 @@ const DAY_LABELS = {
 // Cell configuration
 const CELL_WIDTH = 180
 const CELL_HEIGHT = 60
-const HEADER_HEIGHT = 50
 
 interface ScheduleMatrixProps {
   entries: ScheduleEntry[]
@@ -96,6 +96,8 @@ interface CellData {
   conflicts: ScheduleConflict[]
   dayOfWeek: DayOfWeek
   timeSlot: TimeSlot
+  daysOfWeek: DayOfWeek[]
+  timeSlots: TimeSlot[]
   onEntryClick?: (entry: ScheduleEntry) => void
   onCellClick?: (dayOfWeek: DayOfWeek, timeSlot: TimeSlot) => void
   selectedEntryId?: string
@@ -110,8 +112,8 @@ const ScheduleCell: React.FC<{
   style: React.CSSProperties
   data: CellData
 }> = ({ columnIndex, rowIndex, style, data }) => {
-  const dayOfWeek = DAYS_OF_WEEK[columnIndex]
-  const timeSlot = TIME_SLOTS[rowIndex]
+  const dayOfWeek = data.daysOfWeek[columnIndex]
+  const timeSlot = data.timeSlots[rowIndex]
   
   // Find entries for this cell
   const cellEntries = data.entries.filter(entry => 
@@ -220,7 +222,7 @@ const ScheduleCell: React.FC<{
                   <span>{entry.attendanceCount || 0}/{entry.maxCapacity || '∞'}</span>
                 </div>
                 <StatusIndicator 
-                  status={entry.status.toLowerCase()}
+                  status={entry.status.toLowerCase() as any}
                   variant="dot"
                   size="sm"
                 />
@@ -256,9 +258,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   loading = false,
   onEntryClick,
   onCellClick,
-  onEntryDrop,
   selectedEntryId,
-  readOnly = false,
   showConflicts = true,
   compactMode = false,
   className
@@ -267,6 +267,60 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [gridDimensions, setGridDimensions] = useState({ width: 0, height: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // ============================================================================
+  // DYNAMIC CONFIGURATION INTEGRATION
+  // This section integrates with the Academic Configuration module to ensure
+  // that schedule generation respects the values established in "Estructura Horario"
+  // ============================================================================
+  
+  // Get dynamic configuration from academic config module
+  const { data: scheduleConfig } = useActiveScheduleConfig()
+  const { data: timeBlocksData } = useTimeBlocks({ is_active: true })
+  const { data: dayConfigsData } = useDays()
+  
+  // Convert time blocks to TIME_SLOTS format
+  const TIME_SLOTS = useMemo(() => {
+    if (timeBlocksData?.time_blocks && timeBlocksData.time_blocks.length > 0) {
+      return timeBlocksData.time_blocks
+        .filter((block: any) => block.is_active)
+        .sort((a: any, b: any) => a.start_time.localeCompare(b.start_time))
+        .map((block: any) => ({
+          start: block.start_time.substring(0, 5), // HH:MM format
+          end: block.end_time.substring(0, 5)
+        }))
+    }
+    // Fallback to default if no time blocks configured
+    return DEFAULT_TIME_SLOTS
+  }, [timeBlocksData])
+
+  // Convert day configs to DAYS_OF_WEEK format
+  const DAYS_OF_WEEK = useMemo(() => {
+    if (dayConfigsData?.days) {
+      const activeDays = dayConfigsData.days
+        .filter((day: any) => day.is_active)
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((day: any) => {
+          // Map day names to DayOfWeek enum
+          const dayMap: { [key: string]: DayOfWeek } = {
+            'Monday': DayOfWeek.MONDAY,
+            'Tuesday': DayOfWeek.TUESDAY,
+            'Wednesday': DayOfWeek.WEDNESDAY,
+            'Thursday': DayOfWeek.THURSDAY,
+            'Friday': DayOfWeek.FRIDAY,
+            'Saturday': DayOfWeek.SATURDAY,
+            'Sunday': DayOfWeek.SUNDAY
+          }
+          return dayMap[day.name] || DayOfWeek.MONDAY
+        })
+      
+      return activeDays.length > 0 ? activeDays : DEFAULT_DAYS_OF_WEEK
+    }
+    // Fallback to default if no day configs
+    return DEFAULT_DAYS_OF_WEEK
+  }, [dayConfigsData])
+
+
 
   // Update grid dimensions on resize
   useEffect(() => {
@@ -291,12 +345,14 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
     conflicts,
     dayOfWeek: DayOfWeek.MONDAY, // Will be overridden in cell
     timeSlot: TIME_SLOTS[0], // Will be overridden in cell
+    daysOfWeek: DAYS_OF_WEEK,
+    timeSlots: TIME_SLOTS,
     onEntryClick,
     onCellClick,
     selectedEntryId,
     showConflicts,
     compactMode
-  }), [entries, conflicts, onEntryClick, onCellClick, selectedEntryId, showConflicts, compactMode])
+  }), [entries, conflicts, DAYS_OF_WEEK, TIME_SLOTS, onEntryClick, onCellClick, selectedEntryId, showConflicts, compactMode])
 
   // Navigate weeks
   const navigateWeek = (direction: 'prev' | 'next') => {
@@ -319,11 +375,34 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
     }
   }, [conflicts])
 
-  if (loading) {
+
+  // Show loading state if configuration is still loading
+  if (loading || (!timeBlocksData && !dayConfigsData)) {
     return (
       <Card className={className}>
         <CardContent className="flex items-center justify-center h-96">
           <LoadingSpinner size="lg" />
+          <span className="ml-2 text-sm text-gray-600">
+            Cargando configuración académica...
+          </span>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show warning if no time blocks are configured
+  if (TIME_SLOTS.length === 0) {
+    return (
+      <Card className={className}>
+        <CardContent className="flex flex-col items-center justify-center h-96 text-center">
+          <AlertTriangle className="w-12 h-12 text-orange-500 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Configuración de horarios requerida
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            No hay bloques de tiempo configurados. Configure la estructura de horarios 
+            en el módulo de Configuración Académica.
+          </p>
         </CardContent>
       </Card>
     )
@@ -337,7 +416,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
             <Calendar className="w-5 h-5" />
             Matriz de Horarios
             {conflictsSummary.total > 0 && showConflicts && (
-              <Badge variant="destructive" size="sm">
+              <Badge variant="outline" size="sm">
                 {conflictsSummary.total} conflictos
               </Badge>
             )}
@@ -373,7 +452,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
             {/* View options */}
             <div className="flex items-center gap-1">
               <Button
-                variant={compactMode ? 'default' : 'outline'}
+                variant={compactMode ? 'primary' : 'outline'}
                 size="sm"
                 onClick={() => {/* Toggle compact mode */}}
               >
@@ -381,7 +460,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
               </Button>
               
               <Button
-                variant={showConflicts ? 'destructive' : 'outline'}
+                variant={showConflicts ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={() => {/* Toggle conflicts */}}
               >
@@ -402,7 +481,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                   {conflictsSummary.total} conflictos detectados
                 </span>
                 {conflictsSummary.critical > 0 && (
-                  <Badge variant="destructive" size="sm">
+                  <Badge variant="outline" size="sm">
                     {conflictsSummary.critical} críticos
                   </Badge>
                 )}
@@ -419,7 +498,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
       <CardContent ref={containerRef} className="p-4">
         {/* Day headers */}
         <div className="flex mb-2" style={{ marginLeft: 60 }}>
-          {DAYS_OF_WEEK.map((day) => (
+          {DAYS_OF_WEEK.map((day: DayOfWeek) => (
             <div
               key={day}
               className="flex-1 text-center p-2 font-medium text-gray-700 bg-gray-50 border border-gray-200"
@@ -434,7 +513,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
         <div className="flex">
           {/* Time labels */}
           <div className="w-15">
-            {TIME_SLOTS.map((timeSlot) => (
+            {TIME_SLOTS.map((timeSlot: TimeSlot) => (
               <div
                 key={timeSlot.start}
                 className="flex items-center justify-center text-xs text-gray-600 border-r border-gray-200"

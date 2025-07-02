@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, memo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 // import { useModalExpansion } from '@/hooks/useModalExpansion' // Hook doesn't exist
 import {
   Card,
@@ -9,6 +10,7 @@ import {
   Input,
   LoadingSpinner,
   Modal,
+  Typography,
   // SearchableSelect, // Component doesn't exist
   // type SearchableSelectOption // Type doesn't exist
 } from '@/design-system/components'
@@ -16,6 +18,10 @@ import { useInstructorList } from '@/features/instructor/hooks'
 import { useGroupList } from '@/features/scheduling/hooks'
 import { useClassroomList } from '@/features/classroom/hooks'
 import { useTimeBlockList, useDayTimeBlockList, useClassScheduleList, useQuarterList, useUpdateClassSchedule, useDeleteClassSchedule } from '@/features/scheduling/hooks'
+import { useTimeBlocks, useActiveScheduleConfig, useDays } from '@/services/query/hooks/academic-config.hooks'
+import { ScheduleMatrix } from '@/features/scheduling/components/ScheduleMatrix/ScheduleMatrix'
+import { AcademicIntegrityGuard } from '@/components/AcademicIntegrityGuard'
+import { useAcademicIntegrity, useCanSchedule } from '@/hooks/useAcademicIntegrity'
 import {
   Search,
   Filter,
@@ -140,6 +146,13 @@ interface ScheduleCell {
 }
 
 function ProgrammingPage() {
+  // Navigation
+  const navigate = useNavigate()
+  
+  // Academic integrity validation
+  const { canScheduleClasses, criticalErrors, warnings } = useAcademicIntegrity()
+  const canSchedule = useCanSchedule()
+  
   const [searchQuery, setSearchQuery] = useState('')
   const [searchType, setSearchType] = useState<SearchType>('instructor')
   const [showFilters, setShowFilters] = useState(false)
@@ -167,8 +180,17 @@ function ProgrammingPage() {
     { limit: 200 }, // Increased limit for better search
     { enabled: isAuthenticated }
   )
+  
+  // Debug authentication status
+  useEffect(() => {
+    console.log('🔐 [AUTH DEBUG] Authentication status:', {
+      isAuthenticated,
+      token: token ? 'present' : 'missing',
+      user: user ? user.email : 'no user'
+    })
+  }, [isAuthenticated, token, user])
   const groupQuery = useGroupList(
-    { limit: 200 },
+    {},
     { enabled: isAuthenticated }
   )
   const classroomQuery = useClassroomList(
@@ -189,6 +211,11 @@ function ProgrammingPage() {
     })
   }, [instructorsStatus, groupsStatus, classroomsStatus, instructorsData, groupsData, classroomsData, instructorsError, groupsError, classroomsError]) */
   
+  // Load dynamic academic configuration
+  const { data: academicTimeBlocks } = useTimeBlocks({})
+  const { data: academicDays } = useDays()
+  const { data: academicScheduleConfig } = useActiveScheduleConfig()
+  
   // Load schedule data when needed - ENABLE ALL FOR TESTING
   const { data: timeBlocksData, refetch: refetchTimeBlocks } = useTimeBlockList({ 
     enabled: isAuthenticated
@@ -200,11 +227,60 @@ function ProgrammingPage() {
   // Debug day time blocks data
   useEffect(() => {
     if (dayTimeBlocksData) {
-      console.log('📅 Day time blocks loaded:', dayTimeBlocksData?.items?.length || 0, 'items')
+      console.log('📅 Day time blocks loaded:', (dayTimeBlocksData as any)?.items?.length || 0, 'items')
       console.log('📅 Day time blocks data structure:', dayTimeBlocksData)
-      console.log('📅 Sample day time block:', dayTimeBlocksData?.items?.[0])
+      console.log('📅 Sample day time block:', (dayTimeBlocksData as any)?.items?.[0])
     }
   }, [dayTimeBlocksData])
+  
+  // Debug academic configuration
+  useEffect(() => {
+    if (academicTimeBlocks) {
+      console.log('🎯 Academic time blocks loaded:', academicTimeBlocks.time_blocks?.length || 0, 'blocks')
+    }
+    if (academicDays) {
+      console.log('🗓️ Academic days loaded:', academicDays.days?.length || 0, 'days')
+    }
+  }, [academicTimeBlocks, academicDays])
+  
+  // Debug data loading status
+  useEffect(() => {
+    console.log('🔎 Data loading status:', {
+      instructors: {
+        loading: instructorsLoading,
+        error: instructorsError?.message,
+        dataLength: (instructorsData as any)?.data?.length || 0,
+        status: instructorsStatus
+      },
+      groups: {
+        loading: groupsLoading,
+        error: groupsError?.message,
+        dataLength: groupsData?.items?.length || 0,
+        status: groupsStatus
+      },
+      classrooms: {
+        loading: classroomsLoading,
+        error: classroomsError?.message,
+        dataLength: classroomsData?.items?.length || 0,
+        status: classroomsStatus
+      }
+    })
+  }, [instructorsLoading, groupsLoading, classroomsLoading, instructorsData, groupsData, classroomsData])
+  
+  // Debug específico para instructores
+  useEffect(() => {
+    console.log('👨‍🏫 [INSTRUCTORS DEBUG] Status update:', {
+      loading: instructorsLoading,
+      error: instructorsError,
+      status: instructorsStatus,
+      hasData: !!instructorsData,
+      dataStructure: instructorsData ? Object.keys(instructorsData) : 'no data',
+      itemsLength: instructorsData?.items?.length || 0,
+      totalInResponse: instructorsData?.total || 0,
+      firstInstructor: instructorsData?.items?.[0]
+    })
+  }, [instructorsData, instructorsLoading, instructorsError, instructorsStatus])
+  
   const { data: classSchedulesData, refetch: refetchClassSchedules } = useClassScheduleList({}, { 
     enabled: isAuthenticated
   })
@@ -238,7 +314,7 @@ function ProgrammingPage() {
       }
     }
     // Always call the modal expansion handler
-    handleDropdownOpen(fieldName, isOpen)
+    handleDropdownOpen()
   }, [openDropdownField, handleDropdownOpen])
 
   // Debounced search query
@@ -274,13 +350,105 @@ function ProgrammingPage() {
 
   // Get current quarter
   const currentQuarter = useMemo(() => {
-    return quartersData?.items?.find((q: any) => {
+    return quartersData?.data?.find((q: any) => {
       const now = new Date()
       const start = new Date(q.start_date)
       const end = new Date(q.end_date)
       return now >= start && now <= end
     })
   }, [quartersData])
+  
+  // Dynamic academic configuration
+  const dynamicTimeBlocks = useMemo(() => {
+    if (academicTimeBlocks?.time_blocks && academicTimeBlocks.time_blocks.length > 0) {
+      // Remove is_active filter temporarily since all blocks are inactive in DB
+      const activeBlocks = academicTimeBlocks.time_blocks
+        .filter((block: any) => block.is_active)
+      
+      // If no active blocks, use all blocks as fallback
+      const blocksToUse = activeBlocks.length > 0 ? activeBlocks : academicTimeBlocks.time_blocks
+      
+      return blocksToUse
+        .sort((a: any, b: any) => a.start_time.localeCompare(b.start_time))
+        .map((block: any, index: number) => ({
+          id: index + 1,
+          start: block.start_time.substring(0, 5),
+          end: block.end_time.substring(0, 5),
+          originalId: block.time_block_id
+        }))
+    }
+    // Fallback to default 8 blocks if no configuration
+    return Array.from({ length: 8 }, (_, i) => ({
+      id: i + 1,
+      start: `${6 + i * 2}:00`,
+      end: `${8 + i * 2}:00`,
+      originalId: i + 1
+    }))
+  }, [academicTimeBlocks])
+  
+  // Debug dynamicTimeBlocks
+  useEffect(() => {
+    console.log('🕰️ [TIME BLOCKS DEBUG]:', {
+      academicTimeBlocks: academicTimeBlocks ? 'loaded' : 'not loaded',
+      timeBlocksArray: academicTimeBlocks?.time_blocks,
+      timeBlocksCount: academicTimeBlocks?.time_blocks?.length || 0,
+      dynamicTimeBlocksCount: dynamicTimeBlocks.length,
+      dynamicTimeBlocks: dynamicTimeBlocks,
+      firstBlock: dynamicTimeBlocks[0]
+    })
+  }, [academicTimeBlocks, dynamicTimeBlocks])
+  
+  const dynamicDays = useMemo(() => {
+    if (academicDays?.days) {
+      return academicDays.days
+        .filter((day: any) => day.is_active)
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((day: any) => ({
+          id: day.day_id,
+          name: day.name === 'Monday' ? 'Lunes' :
+                day.name === 'Tuesday' ? 'Martes' :
+                day.name === 'Wednesday' ? 'Miércoles' :
+                day.name === 'Thursday' ? 'Jueves' :
+                day.name === 'Friday' ? 'Viernes' :
+                day.name === 'Saturday' ? 'Sábado' :
+                day.name === 'Sunday' ? 'Domingo' : day.name,
+          shortName: day.short_name || day.name.substring(0, 3),
+          originalId: day.day_id
+        }))
+    }
+    // Fallback to default 6 days if no configuration (Monday to Saturday)
+    return [
+      { id: 1, name: 'Lunes', shortName: 'LUN', originalId: 1 },
+      { id: 2, name: 'Martes', shortName: 'MAR', originalId: 2 },
+      { id: 3, name: 'Miércoles', shortName: 'MIE', originalId: 3 },
+      { id: 4, name: 'Jueves', shortName: 'JUE', originalId: 4 },
+      { id: 5, name: 'Viernes', shortName: 'VIE', originalId: 5 },
+      { id: 6, name: 'Sábado', shortName: 'SAB', originalId: 6 }
+    ]
+  }, [academicDays])
+  
+  // Debug dynamicDays
+  useEffect(() => {
+    console.log('🗓️ [DAYS DEBUG]:', {
+      academicDays: academicDays ? 'loaded' : 'not loaded',
+      daysArray: academicDays?.days,
+      daysCount: academicDays?.days?.length || 0,
+      dynamicDaysCount: dynamicDays.length,
+      dynamicDays: dynamicDays
+    })
+  }, [academicDays, dynamicDays])
+  
+  // Debug selectedContext and grid rendering
+  useEffect(() => {
+    console.log('🎯 [CONTEXT DEBUG]:', {
+      hasSelectedContext: !!selectedContext,
+      selectedContextType: selectedContext?.type,
+      selectedContextLabel: selectedContext?.label,
+      shouldShowGrid: !!selectedContext,
+      dynamicTimeBlocksReady: dynamicTimeBlocks.length > 0,
+      dynamicDaysReady: dynamicDays.length > 0
+    })
+  }, [selectedContext, dynamicTimeBlocks, dynamicDays])
 
   // Prepare options for select components - memoized for performance
   const instructorOptions = useMemo(() => {
@@ -307,15 +475,34 @@ function ProgrammingPage() {
     }))
   }, [classroomsData])
 
-  // Days of the week - memoized
-  const daysOfWeek = useMemo(() => [
-    { id: 1, name: 'Lunes' },
-    { id: 2, name: 'Martes' },
-    { id: 3, name: 'Miércoles' },
-    { id: 4, name: 'Jueves' },
-    { id: 5, name: 'Viernes' },
-    { id: 6, name: 'Sábado' }
-  ], [])
+  // Days of the week - now dynamic from academic configuration
+  const daysOfWeek = useMemo(() => {
+    if (academicDays?.days) {
+      return academicDays.days
+        .filter((day: any) => day.is_active)
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((day: any) => ({
+          id: day.day_id,
+          name: day.name === 'Monday' ? 'Lunes' :
+                day.name === 'Tuesday' ? 'Martes' :
+                day.name === 'Wednesday' ? 'Miércoles' :
+                day.name === 'Thursday' ? 'Jueves' :
+                day.name === 'Friday' ? 'Viernes' :
+                day.name === 'Saturday' ? 'Sábado' :
+                day.name === 'Sunday' ? 'Domingo' : day.name
+        }))
+    }
+    // Fallback to default if no configuration
+    return [
+      { id: 1, name: 'Lunes' },
+      { id: 2, name: 'Martes' },
+      { id: 3, name: 'Miércoles' },
+      { id: 4, name: 'Jueves' },
+      { id: 5, name: 'Viernes' },
+      { id: 6, name: 'Sábado' }
+    ]
+  }, [academicDays])
+
 
   // Search functionality with debouncing
   const handleSearch = useCallback((query: string) => {
@@ -335,11 +522,30 @@ function ProgrammingPage() {
   useEffect(() => {
     let results: any[] = []
     
+    // Debug data loading
+    console.log('🔍 Processing search results:', {
+      searchType,
+      debouncedQuery,
+      instructorsData: instructorsData ? 'loaded' : 'not loaded',
+      groupsData: groupsData ? 'loaded' : 'not loaded', 
+      classroomsData: classroomsData ? 'loaded' : 'not loaded',
+      instructorsCount: instructorsData?.items?.length || 0,
+      groupsCount: groupsData?.items?.length || 0,
+      classroomsCount: classroomsData?.items?.length || 0
+    })
+    
     // If no search query, show initial results (first few items)
     if (!debouncedQuery.trim()) {
       switch (searchType) {
         case 'instructor':
           results = (instructorsData?.items || []).slice(0, 10)
+          console.log('👨‍🏫 [INSTRUCTOR SEARCH] Initial results:', {
+            instructorsDataExists: !!instructorsData,
+            itemsExists: !!instructorsData?.items,
+            itemsLength: instructorsData?.items?.length || 0,
+            results: results.length,
+            sampleResult: results[0]
+          })
           break
         case 'ficha':
           results = (groupsData?.items || []).slice(0, 10)
@@ -348,6 +554,7 @@ function ProgrammingPage() {
           results = (classroomsData?.items || []).slice(0, 10)
           break
       }
+      console.log('📋 Initial results for', searchType, ':', results.length, 'items')
       setSearchResults(results)
       return
     }
@@ -358,6 +565,11 @@ function ProgrammingPage() {
     switch (searchType) {
       case 'instructor':
         const instructors = instructorsData?.items || []
+        console.log('👨‍🏫 [INSTRUCTOR SEARCH] Filtering:', {
+          query: normalizedQuery,
+          totalInstructors: instructors.length,
+          sampleInstructor: instructors[0]
+        })
         results = instructors.filter((instructor: any) => {
           const fullName = normalizeText(`${instructor.first_name || ''} ${instructor.last_name || ''}`)
           const email = normalizeText(instructor.email || '')
@@ -367,6 +579,7 @@ function ProgrammingPage() {
                  email.includes(normalizedQuery) ||
                  phoneNumber.includes(normalizedQuery)
         })
+        console.log('👨‍🏫 [INSTRUCTOR SEARCH] Filtered results:', results.length)
         break
       case 'ficha':
         const groups = groupsData?.items || []
@@ -442,9 +655,9 @@ function ProgrammingPage() {
     if (!selectedContext || !dayTimeBlocksData || !classSchedulesData) return []
 
     const grid: ScheduleCell[][] = []
-    const timeBlocks = timeBlocksData?.items || []
-    const dayTimeBlocks = dayTimeBlocksData?.items || []
-    const classSchedules = classSchedulesData?.items || []
+    const timeBlocks = (timeBlocksData as any)?.items || []
+    const dayTimeBlocks = (dayTimeBlocksData as any)?.items || []
+    const classSchedules = (classSchedulesData as any)?.items || []
 
     // Filter class schedules based on selected context
     const filteredSchedules = classSchedules.filter((schedule: any) => {
@@ -550,6 +763,13 @@ function ProgrammingPage() {
   const handleSubmitClass = useCallback(async () => {
     if (!selectedCell) return
     
+    // Academic integrity validation
+    if (!canScheduleClasses) {
+      toast.error('❌ Configuración académica incompleta. Complete la configuración antes de programar clases.')
+      console.error('🚨 Programming blocked due to incomplete academic configuration:', criticalErrors)
+      return
+    }
+    
     setIsSubmitting(true)
     try {
       // Validate required fields
@@ -576,8 +796,8 @@ function ProgrammingPage() {
         const updateData = {
           subject: formData.subject.trim(),
           group_id: formData.group_id,
-          instructor_id: formData.instructor_id || null,
-          classroom_id: formData.classroom_id || null
+          instructor_id: formData.instructor_id || undefined,
+          classroom_id: formData.classroom_id || undefined
         }
         
         await updateClassSchedule.mutateAsync({
@@ -597,7 +817,7 @@ function ProgrammingPage() {
         }
         
         // Find the current quarter
-        const quarters = quartersData?.items || []
+        const quarters = (quartersData as any)?.data || []
         const currentQuarter = quarters.find((q: any) => {
           const now = new Date()
           const start = new Date(q.start_date)
@@ -615,7 +835,7 @@ function ProgrammingPage() {
         const timeBlockId = selectedCell.blockIndex + 1 // Time blocks: 1-8
         
         // Find the specific day_time_block_id from the backend data
-        const dayTimeBlock = dayTimeBlocksData?.items?.find(
+        const dayTimeBlock = (dayTimeBlocksData as any)?.items?.find(
           (dtb: any) => dtb.day_id === dayId && dtb.time_block_id === timeBlockId
         )
         
@@ -757,7 +977,7 @@ function ProgrammingPage() {
   // Show search interface immediately, load data progressively
   const showLoadingInline = isLoading && searchQuery.length > 0
 
-  // Generate schedule data based on real database data
+  // Generate schedule data based on real database data and dynamic configuration
   const scheduleData = useMemo(() => {
     const data: Array<Array<{ 
       hasClass: boolean; 
@@ -766,31 +986,35 @@ function ProgrammingPage() {
       dayTimeBlockId?: number;
     }>> = []
     
-    // Initialize empty grid (8 time blocks x 7 days)
-    for (let blockIndex = 0; blockIndex < 8; blockIndex++) {
+    // Initialize empty grid (dynamic time blocks x dynamic days)
+    const numTimeBlocks = dynamicTimeBlocks.length
+    const numDays = dynamicDays.length
+    
+    for (let blockIndex = 0; blockIndex < numTimeBlocks; blockIndex++) {
       const row: Array<{ 
         hasClass: boolean; 
         isPartial: boolean; 
         classData?: any;
         dayTimeBlockId?: number;
       }> = []
-      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      for (let dayIndex = 0; dayIndex < numDays; dayIndex++) {
         row.push({ hasClass: false, isPartial: false })
       }
       data.push(row)
     }
     
     // If we have schedule data, populate it
-    if (classSchedulesData?.items && dayTimeBlocksData?.items) {
-      classSchedulesData.items.forEach((classSchedule: any) => {
+    if ((classSchedulesData as any)?.items && (dayTimeBlocksData as any)?.items) {
+      (classSchedulesData as any).items.forEach((classSchedule: any) => {
         // Find the corresponding day_time_block
-        const dayTimeBlock = dayTimeBlocksData.items.find(
+        const dayTimeBlock = (dayTimeBlocksData as any).items.find(
           (dtb: any) => dtb.day_time_block_id === classSchedule.day_time_block_id
         )
         
         if (dayTimeBlock) {
-          const dayIndex = dayTimeBlock.day_id - 1 // Convert to 0-based index
-          const blockIndex = dayTimeBlock.time_block_id - 1 // Convert to 0-based index
+          // Find the corresponding indices in our dynamic configuration
+          const dayIndex = dynamicDays.findIndex(day => day.originalId === dayTimeBlock.day_id)
+          const blockIndex = dynamicTimeBlocks.findIndex(block => block.originalId === dayTimeBlock.time_block_id)
           
           // Check if this class is relevant to the selected context
           const isRelevantToContext = !selectedContext || (
@@ -799,7 +1023,7 @@ function ProgrammingPage() {
             (selectedContext.type === 'ambiente' && classSchedule.classroom_id === parseInt(selectedContext.id))
           )
           
-          if (isRelevantToContext && dayIndex >= 0 && dayIndex < 7 && blockIndex >= 0 && blockIndex < 8) {
+          if (isRelevantToContext && dayIndex >= 0 && dayIndex < dynamicDays.length && blockIndex >= 0 && blockIndex < dynamicTimeBlocks.length) {
             // Check if class is complete or partial
             const hasInstructor = !!classSchedule.instructor_id
             const hasClassroom = !!classSchedule.classroom_id
@@ -820,8 +1044,8 @@ function ProgrammingPage() {
     }
     
     console.log('🔄 Schedule data updated:', {
-      classSchedulesCount: classSchedulesData?.items?.length || 0,
-      dayTimeBlocksCount: dayTimeBlocksData?.items?.length || 0,
+      classSchedulesCount: (classSchedulesData as any)?.items?.length || 0,
+      dayTimeBlocksCount: (dayTimeBlocksData as any)?.items?.length || 0,
       selectedContext: selectedContext?.type,
       dataStructure: data.map((row, blockIndex) => 
         row.map((cell, dayIndex) => ({
@@ -832,7 +1056,7 @@ function ProgrammingPage() {
     })
     
     return data
-  }, [classSchedulesData, dayTimeBlocksData, selectedContext])
+  }, [classSchedulesData, dayTimeBlocksData, selectedContext, dynamicTimeBlocks, dynamicDays])
 
   // ScheduleCell component - memoized to prevent unnecessary re-renders
   const ScheduleCell = memo<{
@@ -928,7 +1152,13 @@ function ProgrammingPage() {
   ScheduleCell.displayName = 'ScheduleCell'
 
   return (
-    <div className="min-h-screen flex flex-col -m-4 md:-m-6">
+    <AcademicIntegrityGuard 
+      requiresConfiguration={false}
+      showWarnings={true}
+      allowPartialAccess={true}
+      fallbackMessage="Para programar clases, primero debe configurar trimestres, bloques de tiempo y días laborables en el módulo de Configuración Académica."
+    >
+      <div className="min-h-screen flex flex-col -m-4 md:-m-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -972,6 +1202,13 @@ function ProgrammingPage() {
                 />
               )}
             </AnimatePresence>
+            
+            {/* Debug info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="absolute top-full left-0 mt-12 p-2 bg-gray-100 text-xs text-gray-700 rounded z-50">
+                Results: {searchResults.length} | Type: {searchType} | Show: {showSearchResults.toString()}
+              </div>
+            )}
           </div>
 
           {/* Filter button */}
@@ -1059,8 +1296,9 @@ function ProgrammingPage() {
           <Button
             variant="primary"
             size="sm"
-            disabled={!selectedContext}
+            disabled={!selectedContext || !canSchedule}
             className="flex items-center gap-2"
+            title={!canSchedule ? 'Complete la configuración académica para habilitar programación' : ''}
           >
             <Eye className="w-4 h-4" />
             Visualizar Horario
@@ -1079,47 +1317,25 @@ function ProgrammingPage() {
           >
             {/* Header fijo tipo Excel */}
             <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4 pb-2">
-              <div className="grid grid-cols-8 gap-1">
+              <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${dynamicDays.length + 1}, minmax(0, 1fr))` }}>
                 {/* Header row */}
                 <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
                   Horas
                 </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Lunes
-                </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Martes
-                </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Miércoles
-                </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Jueves
-                </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Viernes
-                </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Sábado
-                </div>
-                <div className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
-                  Domingo
-                </div>
+                {dynamicDays.map((day) => (
+                  <div key={day.id} className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-md">
+                    {day.name}
+                  </div>
+                ))}
               </div>
             </div>
             
             {/* Contenido scrolleable */}
             <div className="flex-1 overflow-y-auto p-4 pt-2">
-              <div className="grid grid-cols-8 gap-1">
+              <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${dynamicDays.length + 1}, minmax(0, 1fr))` }}>
 
               {/* Time blocks and schedule cells */}
-              {Array.from({ length: 8 }, (_, blockIndex) => {
-                const timeBlock = {
-                  id: blockIndex + 1,
-                  start: `${6 + blockIndex * 2}:00`,
-                  end: `${8 + blockIndex * 2}:00`
-                }
-                
+              {dynamicTimeBlocks.map((timeBlock, blockIndex) => {
                 return (
                   <React.Fragment key={blockIndex}>
                     {/* Time label */}
@@ -1145,7 +1361,7 @@ function ProgrammingPage() {
                           onClick={() => handleCellClick(blockIndex, dayIndex)}
                         />
                       )
-                    }) || []}
+                    }).slice(0, dynamicDays.length) || []}
                   </React.Fragment>
                 )
               })}
@@ -1190,6 +1406,41 @@ function ProgrammingPage() {
         </div>
       )}
 
+      {/* Academic Integrity Warnings */}
+      {warnings.length > 0 && canScheduleClasses && (
+        <div className="mx-4 mb-4">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <Typography variant="body2" className="text-amber-800 dark:text-amber-200 font-medium mb-2">
+                  Advertencias de Configuración
+                </Typography>
+                <ul className="space-y-1">
+                  {warnings.map((warning, index) => (
+                    <li key={index} className="text-sm text-amber-700 dark:text-amber-300">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/configuracion-academica')}
+                  className="mt-3 text-amber-700 border-amber-300 hover:bg-amber-100"
+                >
+                  Optimizar Configuración
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Programming Modal */}
       {console.log('🔍 Modal Debug:', { showProgrammingModal, selectedCell, selectedContext })}
       <Modal
@@ -1204,7 +1455,6 @@ function ProgrammingPage() {
         }}
         title={isEditMode ? "Editar Clase" : "Programar Clase"}
         size="lg"
-        className="overflow-visible transition-all duration-300 ease-in-out"
       >
         <motion.div 
           className="space-y-4"
@@ -1233,10 +1483,10 @@ function ProgrammingPage() {
                 <span className="font-medium text-gray-900 dark:text-gray-100">Contexto:</span> {selectedContext?.type === 'instructor' ? 'Instructor' : selectedContext?.type === 'ficha' ? 'Ficha' : 'Ambiente'} - {selectedContext?.label}
               </p>
               <p>
-                <span className="font-medium text-gray-900 dark:text-gray-100">Bloque:</span> {selectedCell ? `${6 + selectedCell.blockIndex * 2}:00 - ${8 + selectedCell.blockIndex * 2}:00` : ''}
+                <span className="font-medium text-gray-900 dark:text-gray-100">Bloque:</span> {selectedCell && dynamicTimeBlocks[selectedCell.blockIndex] ? `${dynamicTimeBlocks[selectedCell.blockIndex].start} - ${dynamicTimeBlocks[selectedCell.blockIndex].end}` : ''}
               </p>
               <p>
-                <span className="font-medium text-gray-900 dark:text-gray-100">Día:</span> {selectedCell ? ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][selectedCell.dayIndex] : ''}
+                <span className="font-medium text-gray-900 dark:text-gray-100">Día:</span> {selectedCell && dynamicDays[selectedCell.dayIndex] ? dynamicDays[selectedCell.dayIndex].name : ''}
               </p>
             </div>
           </div>
@@ -1427,7 +1677,8 @@ function ProgrammingPage() {
           </div>
         </motion.div>
       </Modal>
-    </div>
+      </div>
+    </AcademicIntegrityGuard>
   )
 }
 

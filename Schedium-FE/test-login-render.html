@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login Render - Schedium</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { border-left: 4px solid #10b981; }
+        .error { border-left: 4px solid #ef4444; }
+        .warning { border-left: 4px solid #f59e0b; }
+        .logs { background: #1f2937; color: #f3f4f6; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        iframe { width: 100%; height: 600px; border: 1px solid #d1d5db; border-radius: 4px; }
+        .status { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; font-weight: bold; }
+        .status.ok { background: #10b981; }
+        .status.error { background: #ef4444; }
+        .status.loading { background: #6b7280; }
+        button { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico Completo - Login Schedium</h1>
+        
+        <div class="test-section">
+            <h3>📊 Estado del Servidor</h3>
+            <p>Servidor: <span id="server-status" class="status loading">Verificando...</span></p>
+            <p>Login Route: <span id="login-status" class="status loading">Verificando...</span></p>
+            <p>Assets: <span id="assets-status" class="status loading">Verificando...</span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Test de Renderizado del Login</h3>
+            <button onclick="testDirectRender()">🔄 Test Directo</button>
+            <button onclick="testWithFetch()">📥 Test con Fetch</button>
+            <button onclick="clearLogs()">🗑️ Limpiar Logs</button>
+            <button onclick="inspectErrors()">🐛 Inspeccionar Errores</button>
+            
+            <div id="render-test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📱 Vista del Login (iframe)</h3>
+            <iframe id="login-iframe" src="http://localhost:3000/login"></iframe>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Logs en Tiempo Real</h3>
+            <div class="logs" id="console-logs">Inicializando monitoreo...\n</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Análisis de Red</h3>
+            <div id="network-analysis"></div>
+        </div>
+    </div>
+
+    <script>
+        let logs = '';
+        
+        function addLog(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs += `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            document.getElementById('console-logs').textContent = logs;
+            document.getElementById('console-logs').scrollTop = document.getElementById('console-logs').scrollHeight;
+        }
+
+        // Capturar errores globales
+        window.addEventListener('error', (e) => {
+            addLog('ERROR', `Global error: ${e.message} at ${e.filename}:${e.lineno}`);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            addLog('PROMISE_ERROR', `Unhandled promise rejection: ${e.reason}`);
+        });
+
+        // Test 1: Estado del servidor
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('http://localhost:3000/');
+                const status = document.getElementById('server-status');
+                if (response.ok) {
+                    status.textContent = 'Online ✅';
+                    status.className = 'status ok';
+                    addLog('SERVER', 'Servidor principal respondiendo correctamente');
+                } else {
+                    status.textContent = `Error ${response.status}`;
+                    status.className = 'status error';
+                    addLog('SERVER', `Servidor respondió con error ${response.status}`);
+                }
+            } catch (error) {
+                const status = document.getElementById('server-status');
+                status.textContent = 'Offline ❌';
+                status.className = 'status error';
+                addLog('SERVER', `Error conectando: ${error.message}`);
+            }
+        }
+
+        // Test 2: Ruta de login
+        async function checkLoginRoute() {
+            try {
+                const response = await fetch('http://localhost:3000/login');
+                const status = document.getElementById('login-status');
+                if (response.ok) {
+                    const text = await response.text();
+                    if (text.includes('Schedium') && text.includes('login')) {
+                        status.textContent = 'Funcionando ✅';
+                        status.className = 'status ok';
+                        addLog('LOGIN', 'Ruta de login responde con contenido correcto');
+                    } else {
+                        status.textContent = 'Contenido incorrecto ⚠️';
+                        status.className = 'status warning';
+                        addLog('LOGIN', 'Ruta de login responde pero el contenido parece incorrecto');
+                    }
+                } else {
+                    status.textContent = `Error ${response.status}`;
+                    status.className = 'status error';
+                    addLog('LOGIN', `Ruta de login respondió con error ${response.status}`);
+                }
+            } catch (error) {
+                const status = document.getElementById('login-status');
+                status.textContent = 'Error ❌';
+                status.className = 'status error';
+                addLog('LOGIN', `Error verificando ruta: ${error.message}`);
+            }
+        }
+
+        // Test 3: Assets estáticos
+        async function checkAssets() {
+            try {
+                const assetsToCheck = [
+                    '/images/Schedium-Negro.svg',
+                    '/images/Schedium-Blanco.svg',
+                    '/images/Sena-Verde.svg'
+                ];
+                
+                let allGood = true;
+                for (const asset of assetsToCheck) {
+                    try {
+                        const response = await fetch(`http://localhost:3000${asset}`);
+                        if (!response.ok) {
+                            allGood = false;
+                            addLog('ASSETS', `Asset faltante: ${asset}`);
+                        }
+                    } catch (e) {
+                        allGood = false;
+                        addLog('ASSETS', `Error cargando asset: ${asset}`);
+                    }
+                }
+                
+                const status = document.getElementById('assets-status');
+                if (allGood) {
+                    status.textContent = 'Disponibles ✅';
+                    status.className = 'status ok';
+                    addLog('ASSETS', 'Todos los assets principales están disponibles');
+                } else {
+                    status.textContent = 'Algunos faltan ⚠️';
+                    status.className = 'status warning';
+                }
+            } catch (error) {
+                const status = document.getElementById('assets-status');
+                status.textContent = 'Error ❌';
+                status.className = 'status error';
+                addLog('ASSETS', `Error verificando assets: ${error.message}`);
+            }
+        }
+
+        // Test de renderizado directo
+        async function testDirectRender() {
+            addLog('TEST', 'Iniciando test de renderizado directo...');
+            
+            try {
+                const response = await fetch('http://localhost:3000/login');
+                const html = await response.text();
+                
+                // Analizar el HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                const hasReactRoot = doc.getElementById('root');
+                const hasLoginForm = html.includes('login') || html.includes('Login');
+                const hasViteScript = html.includes('/@vite/client');
+                const hasErrors = html.includes('Error') || html.includes('error');
+                
+                let result = '<h4>Resultados del Test Directo:</h4><ul>';
+                result += `<li>React Root Element: ${hasReactRoot ? '✅ Presente' : '❌ Ausente'}</li>`;
+                result += `<li>Contenido de Login: ${hasLoginForm ? '✅ Detectado' : '❌ No detectado'}</li>`;
+                result += `<li>Vite Client Script: ${hasViteScript ? '✅ Presente' : '❌ Ausente'}</li>`;
+                result += `<li>Errores visibles: ${hasErrors ? '⚠️ Detectados' : '✅ No detectados'}</li>`;
+                result += '</ul>';
+                
+                document.getElementById('render-test-result').innerHTML = result;
+                
+                addLog('TEST', `React Root: ${hasReactRoot ? 'OK' : 'MISSING'}`);
+                addLog('TEST', `Login Content: ${hasLoginForm ? 'OK' : 'MISSING'}`);
+                addLog('TEST', `Vite Script: ${hasViteScript ? 'OK' : 'MISSING'}`);
+                
+            } catch (error) {
+                addLog('TEST', `Error en test directo: ${error.message}`);
+                document.getElementById('render-test-result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Test con fetch detallado
+        async function testWithFetch() {
+            addLog('FETCH', 'Iniciando test con fetch detallado...');
+            
+            try {
+                const start = performance.now();
+                const response = await fetch('http://localhost:3000/login', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'User-Agent': 'Mozilla/5.0 (Test Script)'
+                    }
+                });
+                const end = performance.now();
+                
+                addLog('FETCH', `Tiempo de respuesta: ${(end - start).toFixed(2)}ms`);
+                addLog('FETCH', `Status: ${response.status} ${response.statusText}`);
+                addLog('FETCH', `Content-Type: ${response.headers.get('content-type')}`);
+                addLog('FETCH', `Content-Length: ${response.headers.get('content-length') || 'No especificado'}`);
+                
+                const text = await response.text();
+                addLog('FETCH', `Tamaño del HTML: ${text.length} caracteres`);
+                
+                // Buscar patrones específicos
+                const patterns = [
+                    { name: 'React', regex: /react/i },
+                    { name: 'Login Form', regex: /<form.*login/i },
+                    { name: 'Input Email', regex: /<input.*email/i },
+                    { name: 'Input Password', regex: /<input.*password/i },
+                    { name: 'Schedium Title', regex: /Schedium/i },
+                    { name: 'Error Messages', regex: /error|Error|ERROR/g }
+                ];
+                
+                patterns.forEach(pattern => {
+                    const matches = text.match(pattern.regex);
+                    addLog('PATTERN', `${pattern.name}: ${matches ? `${matches.length} coincidencias` : 'No encontrado'}`);
+                });
+                
+            } catch (error) {
+                addLog('FETCH', `Error en test con fetch: ${error.message}`);
+            }
+        }
+
+        // Limpiar logs
+        function clearLogs() {
+            logs = '';
+            document.getElementById('console-logs').textContent = 'Logs limpiados.\n';
+            addLog('SYSTEM', 'Logs reiniciados');
+        }
+
+        // Inspeccionar errores específicos
+        function inspectErrors() {
+            addLog('INSPECT', 'Iniciando inspección de errores...');
+            
+            // Verificar si iframe cargó correctamente
+            const iframe = document.getElementById('login-iframe');
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                if (iframeDoc) {
+                    addLog('IFRAME', 'Iframe cargado correctamente');
+                    const bodyContent = iframeDoc.body ? iframeDoc.body.innerText : 'Sin contenido';
+                    addLog('IFRAME', `Contenido del body: ${bodyContent.substring(0, 100)}...`);
+                } else {
+                    addLog('IFRAME', 'No se puede acceder al contenido del iframe (posible CORS)');
+                }
+            } catch (e) {
+                addLog('IFRAME', `Error accediendo al iframe: ${e.message}`);
+            }
+        }
+
+        // Monitorear el iframe
+        document.getElementById('login-iframe').onload = function() {
+            addLog('IFRAME', 'Iframe terminó de cargar');
+            setTimeout(inspectErrors, 1000); // Dar tiempo para que React renderice
+        };
+
+        document.getElementById('login-iframe').onerror = function(e) {
+            addLog('IFRAME', `Error cargando iframe: ${e.message || 'Error desconocido'}`);
+        };
+
+        // Inicializar tests automáticamente
+        window.onload = function() {
+            addLog('INIT', 'Página de diagnóstico cargada');
+            checkServerStatus();
+            setTimeout(checkLoginRoute, 1000);
+            setTimeout(checkAssets, 2000);
+            setTimeout(testDirectRender, 3000);
+        };
+    </script>
+</body>
+</html>

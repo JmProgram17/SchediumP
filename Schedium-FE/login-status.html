@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Status Check</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #f0f8ff; }
+        .status { 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            border: 2px solid #333;
+            background: white;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        iframe { width: 100%; height: 500px; border: 2px solid #007bff; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Schedium Login Status Check</h1>
+    
+    <div id="status" class="status">
+        <h3>📊 Checking Status...</h3>
+        <p id="message">Initializing...</p>
+    </div>
+
+    <iframe src="http://localhost:3000/login" id="login-frame"></iframe>
+
+    <script>
+        async function checkStatus() {
+            const statusDiv = document.getElementById('status');
+            const messageP = document.getElementById('message');
+            
+            try {
+                const response = await fetch('http://localhost:3000/login');
+                
+                if (response.ok) {
+                    statusDiv.className = 'status success';
+                    messageP.innerHTML = `
+                        ✅ <strong>SUCCESS!</strong><br>
+                        📡 Server: Responding (${response.status})<br>
+                        🚀 Login Page: Loading in iframe<br>
+                        🕐 Time: ${new Date().toLocaleTimeString()}<br>
+                        <br>
+                        <em>Check the iframe below to see if the login form is rendering correctly.</em>
+                    `;
+                } else {
+                    statusDiv.className = 'status error';
+                    messageP.innerHTML = `
+                        ❌ <strong>ERROR!</strong><br>
+                        📡 Server Error: ${response.status} ${response.statusText}<br>
+                        🕐 Time: ${new Date().toLocaleTimeString()}
+                    `;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                messageP.innerHTML = `
+                    ❌ <strong>CONNECTION ERROR!</strong><br>
+                    📡 Cannot reach server<br>
+                    🚨 Error: ${error.message}<br>
+                    🕐 Time: ${new Date().toLocaleTimeString()}
+                `;
+            }
+        }
+
+        document.getElementById('login-frame').onload = function() {
+            const messageP = document.getElementById('message');
+            messageP.innerHTML += '<br>🖼️ <strong>Iframe loaded successfully!</strong>';
+        };
+
+        checkStatus();
+    </script>
+</body>
+</html>

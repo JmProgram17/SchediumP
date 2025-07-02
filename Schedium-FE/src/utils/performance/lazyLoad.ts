@@ -98,7 +98,7 @@ export const ClassroomsPage = createLazyComponent(
 )
 
 export const ReportsPage = createLazyComponent(
-  () => import(/* webpackChunkName: "reports" */ '../../pages/InformesPage').then(module => ({ default: module.InformesPage })),
+  () => import(/* webpackChunkName: "reports" */ '../../pages/InformesPage'),
   { chunkName: 'reports' }
 )
 

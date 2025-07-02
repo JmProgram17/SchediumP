@@ -71,6 +71,10 @@ export function useCreateQuarter() {
     mutationFn: (quarterData: QuarterCreate) => academicConfigApi.createQuarter(quarterData),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.quarters() })
+      queryClient.invalidateQueries({ queryKey: academicConfigKeys.activeQuarter() })
+      // Invalidate scheduling queries since quarters affect programming
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
       toast.success('Trimestre creado exitosamente')
     },
     onError: (error: any) => {
@@ -88,6 +92,10 @@ export function useUpdateQuarter() {
     onSuccess: (response, { id }) => {
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.quarters() })
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.quarter(id) })
+      queryClient.invalidateQueries({ queryKey: academicConfigKeys.activeQuarter() })
+      // Invalidate scheduling queries since quarters affect programming
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
       toast.success('Trimestre actualizado exitosamente')
     },
     onError: (error: any) => {
@@ -119,7 +127,11 @@ export function useActivateQuarter() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.quarters() })
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.activeQuarter() })
-      toast.success('Trimestre activado exitosamente')
+      // Invalidate ALL scheduling queries when quarter changes
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      toast.success('Trimestre activado exitosamente - Sistema de programación actualizado')
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Error al activar el trimestre')
@@ -152,13 +164,25 @@ export function useCreateTimeBlock() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (timeBlockData: TimeBlockCreate) => academicConfigApi.createTimeBlock(timeBlockData),
+    mutationFn: (timeBlockData: TimeBlockCreate) => {
+      console.log('🔧 DEBUG: Creating time block with data:', timeBlockData)
+      return academicConfigApi.createTimeBlock(timeBlockData)
+    },
     onSuccess: (response) => {
+      console.log('✅ Time block created successfully:', response)
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() })
+      // Invalidate ALL scheduling queries that depend on time blocks
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
       // No toast here - will be handled by parent component
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.detail || 'Error al crear el bloque de tiempo')
+      console.error('🚨 Error creating time block:', error)
+      console.error('🚨 Error response:', error?.response)
+      console.error('🚨 Error data:', error?.response?.data)
+      toast.error(error?.response?.data?.detail || error?.response?.data?.message || 'Error al crear el bloque de tiempo')
     }
   })
 }
@@ -172,6 +196,11 @@ export function useUpdateTimeBlock() {
     onSuccess: (response, { id }) => {
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() })
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlock(id) })
+      // Invalidate ALL scheduling queries that depend on time blocks
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
       // No toast here - will be handled by parent component
     },
     onError: (error: any) => {
@@ -187,7 +216,12 @@ export function useDeleteTimeBlock() {
     mutationFn: (timeBlockId: number) => academicConfigApi.deleteTimeBlock(timeBlockId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() })
-      toast.success('Bloque de tiempo eliminado exitosamente')
+      // Invalidate ALL scheduling queries that depend on time blocks
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
+      toast.success('Bloque de tiempo eliminado - Horarios afectados invalidados')
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Error al eliminar el bloque de tiempo')
@@ -215,6 +249,11 @@ export function useUpdateDayConfig() {
       academicConfigApi.updateDayConfig(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: academicConfigKeys.days() })
+      // Invalidate ALL scheduling queries that depend on days
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      queryClient.invalidateQueries({ queryKey: ['days'] })
       // No toast here - will be handled by parent component
     },
     onError: (error: any) => {
@@ -305,6 +344,12 @@ export function useUpdateScheduleConfig() {
     mutationFn: academicConfigApi.updateScheduleConfig,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...academicConfigKeys.all, 'schedule-config'] })
+      // Invalidate ALL scheduling-related queries since schedule config affects everything
+      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
+      queryClient.invalidateQueries({ queryKey: ['days'] })
       // No toast here - will be handled by parent component
     },
     onError: (error: any) => {

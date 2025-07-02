@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Login - Schedium</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { border-color: green; background: #e8f5e8; }
+        .error { border-color: red; background: #ffe8e8; }
+        iframe { width: 100%; height: 600px; border: 1px solid #ccc; }
+        .logs { background: #f5f5f5; padding: 10px; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Login - Schedium MVP</h1>
+    
+    <div class="test">
+        <h3>Test 1: Servidor responde</h3>
+        <div id="server-test">Verificando...</div>
+    </div>
+
+    <div class="test">
+        <h3>Test 2: Página principal carga</h3>
+        <div id="home-test">Verificando...</div>
+    </div>
+
+    <div class="test">
+        <h3>Test 3: Ruta de login existe</h3>
+        <div id="login-test">Verificando...</div>
+    </div>
+
+    <div class="test">
+        <h3>Test 4: Iframe del Login</h3>
+        <iframe src="http://localhost:3000/login" id="login-iframe"></iframe>
+    </div>
+
+    <div class="test">
+        <h3>Console Logs</h3>
+        <div class="logs" id="console-logs">Monitoring console...</div>
+    </div>
+
+    <script>
+        // Capturar errores de consola
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleLog = console.log;
+        
+        const logs = document.getElementById('console-logs');
+        
+        function addLog(type, ...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.textContent += `[${timestamp}] ${type.toUpperCase()}: ${args.join(' ')}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        console.error = function(...args) {
+            addLog('error', ...args);
+            originalConsoleError.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            addLog('warn', ...args);
+            originalConsoleWarn.apply(console, args);
+        };
+
+        console.log = function(...args) {
+            addLog('log', ...args);
+            originalConsoleLog.apply(console, args);
+        };
+
+        // Test 1: Verificar servidor
+        fetch('http://localhost:3000')
+            .then(response => {
+                const test1 = document.getElementById('server-test');
+                if (response.ok) {
+                    test1.textContent = '✅ Servidor responde correctamente';
+                    test1.parentElement.classList.add('success');
+                } else {
+                    test1.textContent = `❌ Servidor responde con error: ${response.status}`;
+                    test1.parentElement.classList.add('error');
+                }
+            })
+            .catch(error => {
+                const test1 = document.getElementById('server-test');
+                test1.textContent = `❌ Error conectando al servidor: ${error.message}`;
+                test1.parentElement.classList.add('error');
+            });
+
+        // Test 2: Verificar página principal
+        fetch('http://localhost:3000')
+            .then(response => response.text())
+            .then(html => {
+                const test2 = document.getElementById('home-test');
+                if (html.includes('Schedium')) {
+                    test2.textContent = '✅ Página principal carga correctamente';
+                    test2.parentElement.classList.add('success');
+                } else {
+                    test2.textContent = '❌ Página principal no contiene "Schedium"';
+                    test2.parentElement.classList.add('error');
+                }
+            })
+            .catch(error => {
+                const test2 = document.getElementById('home-test');
+                test2.textContent = `❌ Error cargando página principal: ${error.message}`;
+                test2.parentElement.classList.add('error');
+            });
+
+        // Test 3: Verificar ruta de login
+        fetch('http://localhost:3000/login')
+            .then(response => {
+                const test3 = document.getElementById('login-test');
+                if (response.ok) {
+                    test3.textContent = '✅ Ruta de login responde correctamente';
+                    test3.parentElement.classList.add('success');
+                } else {
+                    test3.textContent = `❌ Ruta de login responde con error: ${response.status}`;
+                    test3.parentElement.classList.add('error');
+                }
+            })
+            .catch(error => {
+                const test3 = document.getElementById('login-test');
+                test3.textContent = `❌ Error accediendo a ruta de login: ${error.message}`;
+                test3.parentElement.classList.add('error');
+            });
+
+        // Monitorear iframe
+        const iframe = document.getElementById('login-iframe');
+        iframe.onload = function() {
+            addLog('iframe', 'Login iframe loaded successfully');
+        };
+        iframe.onerror = function(error) {
+            addLog('iframe-error', 'Login iframe failed to load:', error);
+        };
+
+        addLog('debug', 'Debug page initialized');
+    </script>
+</body>
+</html>
