@@ -39,6 +39,31 @@ Sistema de gestión de programación académica desarrollado con FastAPI para op
 - **Pytest**: Suite completa de pruebas automatizadas
 - **OpenAPI 3.0**: Documentación automática de API
 
+## 🔄 Sincronización de Base de Datos (IMPORTANTE)
+
+Si estás clonando este proyecto por primera vez, es importante sincronizar correctamente la base de datos con todas las migraciones:
+
+```bash
+# Opción 1: Usar el script de sincronización (RECOMENDADO)
+cd Schedium-BE
+./scripts/sync_database.sh
+
+# Opción 2: Sincronización manual
+docker-compose down
+docker volume rm schedium-be_mysql_data  # Elimina datos anteriores
+docker-compose up -d mysql
+sleep 15  # Esperar a que MySQL esté listo
+docker-compose run --rm api alembic upgrade head
+docker-compose up -d
+```
+
+### Conexión con DBeaver
+- **Host:** localhost (o IP del servidor)
+- **Puerto:** 3307 (NO 3306)
+- **Base de datos:** schedium
+- **Usuario:** schedule
+- **Contraseña:** HorariosSena1
+
 ## 🏗️ Arquitectura
 
 ### Patrón de Diseño

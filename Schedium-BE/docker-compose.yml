@@ -18,8 +18,9 @@ services:
       - ./scripts/database/01-database-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./scripts/database/02-initial-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
       - ./scripts/database/03-triggers.sql:/docker-entrypoint-initdb.d/03-triggers.sql:ro
-      - ./scripts/database/04-views.sql:/docker-entrypoint-initdb.d/04-views.sql:ro
-      - ./scripts/database/05-make-instructor-fields-required.sql:/docker-entrypoint-initdb.d/05-required-fields.sql:ro
+      - ./scripts/database/04-add-coordinator-to-department.sql:/docker-entrypoint-initdb.d/04-coordinator.sql:ro
+      - ./scripts/database/04-views.sql:/docker-entrypoint-initdb.d/05-views.sql:ro
+      - ./scripts/database/05-make-instructor-fields-required.sql:/docker-entrypoint-initdb.d/06-required-fields.sql:ro
     networks:
       - schedium-network
     command: >
