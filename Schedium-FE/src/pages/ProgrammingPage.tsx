@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 // import { useModalExpansion } from '@/hooks/useModalExpansion' // Hook doesn't exist
+import { useFreshDataOnRoute, useFreshDataOnFocus } from '@/services/query/use-fresh-data'
 import {
   Card,
   CardContent,
@@ -146,6 +147,10 @@ interface ScheduleCell {
 }
 
 function ProgrammingPage() {
+  // FRESH DATA: Always load fresh data when entering scheduling module
+  useFreshDataOnRoute('scheduling')
+  useFreshDataOnFocus(true)
+  
   // Navigation
   const navigate = useNavigate()
   

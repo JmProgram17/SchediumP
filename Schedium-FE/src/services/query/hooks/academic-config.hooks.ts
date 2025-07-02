@@ -147,7 +147,13 @@ export function useTimeBlocks(filters: TimeBlockFilters = {}) {
   return useQuery({
     queryKey: [...academicConfigKeys.timeBlocks(), filters],
     queryFn: () => academicConfigApi.getTimeBlocks(filters),
-    select: (response) => response.data
+    select: (response) => response.data,
+    // WEBSOCKET OPTIMIZED: Short cache with real-time invalidation
+    staleTime: 30 * 1000,    // 30 seconds - fresh enough for immediate use
+    gcTime: 5 * 60 * 1000,   // 5 minutes - keep in memory for navigation
+    refetchOnMount: false,   // No need - WebSocket will notify of changes
+    refetchOnWindowFocus: false, // No need - WebSocket handles real-time updates
+    refetchOnReconnect: true    // Refetch if internet connection lost
   })
 }
 
@@ -168,14 +174,18 @@ export function useCreateTimeBlock() {
       console.log('🔧 DEBUG: Creating time block with data:', timeBlockData)
       return academicConfigApi.createTimeBlock(timeBlockData)
     },
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       console.log('✅ Time block created successfully:', response)
-      queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() })
+      // FORCE IMMEDIATE REFETCH - NO CACHE
+      queryClient.clear()  // Clear all cache first
+      await queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() })
+      await queryClient.refetchQueries({ queryKey: academicConfigKeys.timeBlocks() })
       // Invalidate ALL scheduling queries that depend on time blocks
-      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
-      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
-      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
-      queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
+      await queryClient.invalidateQueries({ queryKey: ['scheduling'] })
+      await queryClient.refetchQueries({ queryKey: ['scheduling'] })
+      await queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
+      await queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
+      await queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
       // No toast here - will be handled by parent component
     },
     onError: (error: any) => {
@@ -193,14 +203,19 @@ export function useUpdateTimeBlock() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: TimeBlockUpdate }) => 
       academicConfigApi.updateTimeBlock(id, data),
-    onSuccess: (response, { id }) => {
-      queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() })
-      queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlock(id) })
+    onSuccess: async (response, { id }) => {
       // Invalidate ALL scheduling queries that depend on time blocks
-      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
-      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
-      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
-      queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlocks() }),
+        queryClient.invalidateQueries({ queryKey: academicConfigKeys.timeBlock(id) }),
+        queryClient.invalidateQueries({ queryKey: ['scheduling'] }),
+        queryClient.invalidateQueries({ queryKey: ['classSchedules'] }),
+        queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] }),
+        queryClient.invalidateQueries({ queryKey: ['timeBlocks'] })
+      ])
+      
+      // Force immediate refetch to see changes instantly
+      await queryClient.refetchQueries({ queryKey: academicConfigKeys.timeBlocks() })
       // No toast here - will be handled by parent component
     },
     onError: (error: any) => {
@@ -237,7 +252,13 @@ export function useDays() {
   return useQuery({
     queryKey: academicConfigKeys.days(),
     queryFn: academicConfigApi.getDays,
-    select: (response) => response.data
+    select: (response) => response.data,
+    // FORCE FRESH DATA: Always fetch to ensure data is current
+    staleTime: 0,              // Always consider stale
+    gcTime: 5 * 60 * 1000,     // 5 minutes - keep in memory for navigation
+    refetchOnMount: true,      // ALWAYS fetch on mount to get latest data
+    refetchOnWindowFocus: true, // Fetch on focus to get updates
+    refetchOnReconnect: true   // Refetch if internet connection lost
   })
 }
 
@@ -245,16 +266,34 @@ export function useUpdateDayConfig() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: DayConfigUpdate }) => 
-      academicConfigApi.updateDayConfig(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: academicConfigKeys.days() })
-      // Invalidate ALL scheduling queries that depend on days
-      queryClient.invalidateQueries({ queryKey: ['scheduling'] })
-      queryClient.invalidateQueries({ queryKey: ['classSchedules'] })
-      queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] })
-      queryClient.invalidateQueries({ queryKey: ['days'] })
-      // No toast here - will be handled by parent component
+    mutationFn: ({ id, data }: { id: number; data: DayConfigUpdate }) => {
+      console.log('🚨 [MUTATION CALLED] useUpdateDayConfig mutation triggered for day:', id, 'data:', data)
+      console.trace('Stack trace for day config update:')
+      return academicConfigApi.updateDayConfig(id, data)
+    },
+    onSuccess: async () => {
+      // FORCE IMMEDIATE REFETCH - NO CACHE
+      console.log('🔄 [NO CACHE] Day config updated - clearing cache and refetching')
+      queryClient.clear()  // Clear all cache first
+      
+      // Invalidate and immediately refetch ALL related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: academicConfigKeys.days() }),
+        queryClient.invalidateQueries({ queryKey: ['scheduling'] }),
+        queryClient.invalidateQueries({ queryKey: ['classSchedules'] }),
+        queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] }),
+        queryClient.invalidateQueries({ queryKey: ['days'] })
+      ])
+      
+      // Force immediate refetch to see changes instantly
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: academicConfigKeys.days() }),
+        queryClient.refetchQueries({ queryKey: ['scheduling'] }),
+        queryClient.refetchQueries({ queryKey: ['academic-config'] })
+      ])
+      
+      console.log('✅ [NO CACHE] Day config refetch completed')
+      // IMPORTANT: No toast here - parent component should handle user feedback
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Error al actualizar la configuración del día')
@@ -333,7 +372,11 @@ export function useActiveScheduleConfig() {
   return useQuery({
     queryKey: [...academicConfigKeys.all, 'schedule-config', 'active'],
     queryFn: academicConfigApi.getActiveScheduleConfig,
-    select: (response) => response.data
+    select: (response) => response.data,
+    // FRESH DATA: Always fetch from database
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   })
 }
 

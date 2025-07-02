@@ -80,7 +80,10 @@ export const useStudents = (filters: QueryFilters = {}) => {
       })
       return response as PaginatedResponse<Student>
     },
-    ...CACHE_CONFIG.ACADEMIC,
+    // FRESH DATA: Always fetch from database
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     // Enable background refetching for student lists
     refetchInterval: 5 * 60 * 1000, // 5 minutes
     keepPreviousData: true, // Keep previous data while fetching new data
@@ -235,7 +238,10 @@ export const usePrograms = (filters: QueryFilters = {}) => {
       })
       return response as PaginatedResponse<Program>
     },
-    ...CACHE_CONFIG.REFERENCE, // Programs change less frequently
+    // FRESH DATA: Always fetch from database
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 }
 

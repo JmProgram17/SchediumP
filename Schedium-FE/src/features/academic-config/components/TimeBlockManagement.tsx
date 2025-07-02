@@ -10,7 +10,6 @@ import {
   Calendar,
   AlertTriangle,
   Info,
-  RefreshCw,
   Check,
   ChevronDown,
   Settings
@@ -27,11 +26,18 @@ import {
   useUpdateTimeBlock,
   useDays,
   useUpdateDayConfig,
-  useActiveScheduleConfig
+  useActiveScheduleConfig,
+  useUpdateScheduleConfig
 } from '@/services/query/hooks/academic-config.hooks'
+import { useFreshDataOnMount, useFreshDataOnFocus, useCacheCleaner } from '@/services/query/use-fresh-data'
+import { useForceRefreshAfterMutation } from '@/services/query/no-cache-hooks'
+import { useAcademicConfigWebSocket } from '@/services/websocket/websocket-client'
+import { useWebSocketContext, useRealTimeStatus } from '@/services/websocket/websocket-provider'
+import { RealTimeStatusBadge } from '@/components/ui/RealTimeStatus'
 import { useClassScheduleList } from '@/features/scheduling/hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import type { TimeBlock, TimeBlockCreate, DayConfig } from '@/services/api/academic-config.api'
+import { academicConfigApi } from '@/services/api/academic-config.api'
 import { ScheduleConfigSettings } from './ScheduleConfigSettings'
 
 interface GeneratedBlock {
@@ -42,17 +48,28 @@ interface GeneratedBlock {
 }
 
 export function TimeBlockManagement() {
-  const [uniformDuration, setUniformDuration] = useState<number>(120) // minutes
-  const [startTime, setStartTime] = useState<string>('06:00')
-  const [endTime, setEndTime] = useState<string>('22:00')
+  // REAL-TIME UPDATES: Use WebSocket for instant notifications instead of polling
+  const webSocket = useAcademicConfigWebSocket()
+  const { isConnected: isRealTimeConnected } = useRealTimeStatus()
+  
+  // TEMPORARILY DISABLED: Fresh data hooks causing unwanted reloads during UI interaction
+  // useFreshDataOnMount(['academic-config'])
+  // useFreshDataOnFocus(true)
+  // useCacheCleaner(10000) // Clean cache every 10 seconds
+  
+  const forceRefresh = useForceRefreshAfterMutation()
+  
+  const [uniformDuration, setUniformDuration] = useState<number>(120) // Will be detected from active blocks
+  const [startTime, setStartTime] = useState<string>('06:00') // Will be loaded from schedule config
+  const [endTime, setEndTime] = useState<string>('22:00') // Will be loaded from schedule config
   const [isApplying, setIsApplying] = useState(false)
   const [previewBlocks, setPreviewBlocks] = useState<GeneratedBlock[]>([])
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]) // Monday to Friday by default
+  const [selectedDays, setSelectedDays] = useState<number[]>([]) // Will be loaded from backend
   const [isCompactView, setIsCompactView] = useState<boolean>(true) // Default to compact view
   const [showDaysDropdown, setShowDaysDropdown] = useState<boolean>(false)
   const [showScheduleConfig, setShowScheduleConfig] = useState<boolean>(false)
   const [operationProgress, setOperationProgress] = useState<string>('')
-  const [updatingDay, setUpdatingDay] = useState<number | null>(null)
+  // State removed - no longer needed since we only save on Apply Configuration
   
   // Query hooks
   const { data: timeBlocksData, isLoading: isLoadingBlocks, error: blocksError } = useTimeBlocks()
@@ -64,7 +81,32 @@ export function TimeBlockManagement() {
   const deleteMutation = useDeleteTimeBlock()
   const updateTimeBlockMutation = useUpdateTimeBlock()
   const updateDayMutation = useUpdateDayConfig()
+  const updateScheduleConfigMutation = useUpdateScheduleConfig()
   const queryClient = useQueryClient()
+  
+  // DEBUG: Monitor any unexpected mutations
+  useEffect(() => {
+    const originalMutate = updateDayMutation.mutate
+    const originalMutateAsync = updateDayMutation.mutateAsync
+    
+    // Override to detect unexpected calls
+    updateDayMutation.mutate = (...args) => {
+      console.warn('🚨 [UNEXPECTED] updateDayMutation.mutate called unexpectedly!', args)
+      console.trace('Stack trace:')
+      return originalMutate.apply(updateDayMutation, args)
+    }
+    
+    updateDayMutation.mutateAsync = (...args) => {
+      console.warn('🚨 [UNEXPECTED] updateDayMutation.mutateAsync called unexpectedly!', args)
+      console.trace('Stack trace:')
+      return originalMutateAsync.apply(updateDayMutation, args)
+    }
+    
+    return () => {
+      updateDayMutation.mutate = originalMutate
+      updateDayMutation.mutateAsync = originalMutateAsync
+    }
+  }, [updateDayMutation])
   
   // Check for existing schedules
   const { data: existingSchedulesData } = useClassScheduleList({}, { enabled: true })
@@ -73,6 +115,87 @@ export function TimeBlockManagement() {
   const days = daysData?.days || []
   const isLoading = isLoadingBlocks || isLoadingDays
   const error = blocksError || daysError
+  
+  // DEBUG: Log raw data from backend
+  useEffect(() => {
+    console.log('🔍 [DEBUG] Raw data from backend:', {
+      daysData: daysData,
+      days: days,
+      daysLength: days.length,
+      isLoadingDays: isLoadingDays,
+      daysError: daysError
+    })
+    
+    if (days.length > 0) {
+      console.log('🔍 [DEBUG] Days details:', days.map(d => ({
+        id: d.day_id,
+        name: d.name,
+        is_active: d.is_active,
+        sort_order: d.sort_order
+      })))
+      
+      const activeDays = days.filter(day => day.is_active)
+      const inactiveDays = days.filter(day => !day.is_active)
+      
+      console.log('🔍 [DEBUG] SUMMARY:', {
+        totalDays: days.length,
+        activeDaysCount: activeDays.length,
+        inactiveDaysCount: inactiveDays.length
+      })
+      
+      console.log('🔍 [DEBUG] Active days from backend:', activeDays.map(d => ({
+        id: d.day_id,
+        name: d.name
+      })))
+      
+      console.log('🔍 [DEBUG] Inactive days from backend:', inactiveDays.map(d => ({
+        id: d.day_id,
+        name: d.name
+      })))
+    }
+  }, [daysData, days, isLoadingDays, daysError])
+
+  // DEBUG: Monitor selectedDays state changes
+  useEffect(() => {
+    console.log('📊 [DEBUG] selectedDays state changed:', selectedDays)
+    
+    if (days.length > 0 && selectedDays.length > 0) {
+      const selectedDayNames = days
+        .filter(day => selectedDays.includes(day.day_id))
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(day => ({
+          id: day.day_id,
+          name: getDayNameInSpanish(day.name),
+          short: getDayShortName(day.name)
+        }))
+      console.log('📊 [DEBUG] Selected days for dropdown display:', selectedDayNames)
+    }
+  }, [selectedDays, days])
+
+  // Initialize configuration once when component mounts
+  const [hasInitialized, setHasInitialized] = useState(false)
+  const [hasBackendDataLoaded, setHasBackendDataLoaded] = useState(false)
+  
+  // DEBUG: Monitor initial state immediately on mount
+  useEffect(() => {
+    console.log('🎬 [MOUNT] Component just mounted with initial state:')
+    console.log('🎬 selectedDays initial:', selectedDays)
+    console.log('🎬 days initial:', days)
+    console.log('🎬 days length:', days.length)
+  }, [])
+  
+  useEffect(() => {
+    if (!hasInitialized) {
+      console.log('🚀 Component mounted - Initializing once...')
+      console.log('📊 Current state before backend sync:', {
+        selectedDays,
+        startTime,
+        endTime,
+        uniformDuration
+      })
+      setHasInitialized(true)
+    }
+  }, [hasInitialized])
 
   const addMinutesToTime = (time: string, minutes: number): string => {
     const [hour, min] = time.split(':').map(Number)
@@ -156,28 +279,139 @@ export function TimeBlockManagement() {
     setPreviewBlocks(generateUniformBlocks())
   }, [uniformDuration, startTime, endTime])
 
+  // Function to check if a time block matches the current configuration
+  const blockMatchesConfiguration = (block: TimeBlock): boolean => {
+    const blockStart = block.start_time.substring(0, 5) // HH:MM format
+    const blockEnd = block.end_time.substring(0, 5)
+    const blockDurationMinutes = getTimeDifferenceInMinutes(blockStart, blockEnd)
+    
+    // Check if block fits within current time range
+    const blockStartMinutes = getTimeDifferenceInMinutes('00:00', blockStart)
+    const blockEndMinutes = getTimeDifferenceInMinutes('00:00', blockEnd)
+    const configStartMinutes = getTimeDifferenceInMinutes('00:00', startTime)
+    const configEndMinutes = getTimeDifferenceInMinutes('00:00', endTime)
+    
+    // Block must be within time range
+    if (blockStartMinutes < configStartMinutes || blockEndMinutes > configEndMinutes) {
+      return false
+    }
+    
+    // Block duration must match configured duration
+    if (blockDurationMinutes !== uniformDuration) {
+      return false
+    }
+    
+    // Check if block aligns with the generated blocks
+    const generatedBlocks = generateUniformBlocks()
+    return generatedBlocks.some(generated => 
+      generated.start_time === blockStart && generated.end_time === blockEnd
+    )
+  }
+
   // Helper function for day configuration (used internally by handleApplyConfiguration)
   const updateDaysConfiguration = async () => {
+    console.log('📅 Updating days configuration...')
+    console.log('📅 Selected days:', selectedDays)
+    console.log('📅 All days:', days.map(d => ({ id: d.day_id, name: d.name, current: d.is_active })))
+    
     for (const day of days) {
       const shouldBeActive = selectedDays.includes(day.day_id)
       if (day.is_active !== shouldBeActive) {
+        console.log(`📅 Updating ${day.name} (${day.day_id}): ${day.is_active} → ${shouldBeActive}`)
         try {
           await updateDayMutation.mutateAsync({
             id: day.day_id,
             data: { is_active: shouldBeActive }
           })
+          console.log(`✅ Day ${day.name} updated successfully`)
           // Small delay to prevent API overload
           await new Promise(resolve => setTimeout(resolve, 50))
         } catch (error) {
-          console.warn(`Error updating day ${day.name}:`, error)
+          console.warn(`❌ Error updating day ${day.name}:`, error)
           // Continue with other days
         }
+      } else {
+        console.log(`⏭️ Day ${day.name} (${day.day_id}) already in correct state: ${shouldBeActive}`)
       }
+    }
+    console.log('📅 Days configuration update completed')
+  }
+
+  // Helper function to manage existing time blocks according to configuration
+  const manageExistingTimeBlocks = async () => {
+    console.log(`📊 Evaluating ${timeBlocks.length} existing time blocks...`)
+    
+    for (const block of timeBlocks) {
+      const shouldBeActive = blockMatchesConfiguration(block)
+      
+      // Only update if status needs to change
+      if (block.is_active !== shouldBeActive) {
+        try {
+          console.log(`🔄 ${shouldBeActive ? 'Activating' : 'Deactivating'} block ${block.time_block_id}: ${block.start_time}-${block.end_time}`)
+          
+          await updateTimeBlockMutation.mutateAsync({
+            id: block.time_block_id,
+            data: { is_active: shouldBeActive }
+          })
+          
+          // Small delay to prevent API overload
+          await new Promise(resolve => setTimeout(resolve, 100))
+        } catch (error) {
+          console.warn(`Error updating block ${block.time_block_id}:`, error)
+          // Continue with other blocks
+        }
+      } else {
+        console.log(`✓ Block ${block.time_block_id} already has correct status: ${shouldBeActive ? 'active' : 'inactive'}`)
+      }
+    }
+  }
+
+  // Validation function for configuration
+  const validateConfiguration = (): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = []
+    
+    // Validate time range
+    if (startTime >= endTime) {
+      errors.push('La hora de inicio debe ser anterior a la hora de fin')
+    }
+    
+    // Validate duration
+    if (uniformDuration < 60) {
+      errors.push('La duración mínima debe ser de 60 minutos')
+    }
+    
+    if (uniformDuration > 480) {
+      errors.push('La duración máxima debe ser de 480 minutos (8 horas)')
+    }
+    
+    // Validate selected days
+    if (selectedDays.length === 0) {
+      errors.push('Debe seleccionar al menos un día lectivo')
+    }
+    
+    // Validate that the configuration generates at least one block
+    const generatedBlocks = generateUniformBlocks()
+    if (generatedBlocks.length === 0) {
+      errors.push('La configuración no genera ningún bloque de tiempo válido')
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
     }
   }
 
   // Handle all configuration changes (time blocks + days) in one operation
   const handleApplyConfiguration = async () => {
+    // Validate configuration before applying
+    const validation = validateConfiguration()
+    if (!validation.isValid) {
+      const errorMessage = `❌ Configuración inválida:\n${validation.errors.join('\n')}`
+      toast.error(errorMessage)
+      console.error('🚨 Configuration validation failed:', validation.errors)
+      return
+    }
+    
     // Check for existing schedules and warn user
     const existingSchedules = (existingSchedulesData as any)?.items || []
     
@@ -201,68 +435,165 @@ export function TimeBlockManagement() {
     console.log('🔐 DEBUG: Document cookies:', document.cookie)
     
     try {
-      // Step 1: Always update days configuration first
+      // Step 1: Update schedule configuration (start/end times) first
+      setOperationProgress('Actualizando configuración de horarios...')
+      console.log('⏰ Guardando configuración de horarios en backend...')
+      
+      await updateScheduleConfigMutation.mutateAsync({
+        day_start_time: `${startTime}:00`,
+        day_end_time: `${endTime}:00`
+      })
+      console.log('✅ Schedule configuration saved:', { start: startTime, end: endTime })
+      
+      // Step 2: Update days configuration
       setOperationProgress('Configurando días lectivos...')
       console.log('📅 Aplicando configuración de días...')
       await updateDaysConfiguration()
       
-      // Step 2: Handle time blocks configuration
+      // Step 3: Handle time blocks configuration
       setOperationProgress('Preparando bloques de tiempo...')
       console.log('⏰ Aplicando configuración de bloques de tiempo...')
       
-      // Deactivate existing blocks sequentially (safer than deleting)
+      // First, update existing blocks according to new configuration
       if (timeBlocks.length > 0) {
-        setOperationProgress(`Desactivando ${timeBlocks.length} bloques existentes...`)
-        console.log(`⏰ Desactivando ${timeBlocks.length} bloques existentes...`)
-        for (const block of timeBlocks) {
-          try {
-            await updateTimeBlockMutation.mutateAsync({
-              id: block.time_block_id,
-              data: { is_active: false }
-            })
-            // Small delay to prevent API overload
-            await new Promise(resolve => setTimeout(resolve, 150))
-          } catch (error) {
-            console.warn(`Error deactivating block ${block.time_block_id}:`, error)
-            // Continue with other blocks
-          }
-        }
+        setOperationProgress('Evaluando bloques existentes...')
+        await manageExistingTimeBlocks()
       }
       
-      // Create new uniform blocks sequentially
+      // Create missing blocks that don't exist yet
       const blocksToCreate = generateUniformBlocks()
-      if (blocksToCreate.length > 0) {
-        console.log(`⏰ Creando ${blocksToCreate.length} nuevos bloques...`)
-        for (let i = 0; i < blocksToCreate.length; i++) {
-          const block = blocksToCreate[i]
-          setOperationProgress(`Creando bloque ${i + 1} de ${blocksToCreate.length}...`)
+      const blocksToActuallyCreate = blocksToCreate.filter(newBlock => {
+        return !timeBlocks.some(existingBlock => {
+          const existingStart = existingBlock.start_time.substring(0, 5)
+          const existingEnd = existingBlock.end_time.substring(0, 5)
+          return existingStart === newBlock.start_time && existingEnd === newBlock.end_time
+        })
+      })
+      
+      if (blocksToActuallyCreate.length > 0) {
+        console.log(`⏰ Creando ${blocksToActuallyCreate.length} nuevos bloques...`)
+        for (let i = 0; i < blocksToActuallyCreate.length; i++) {
+          const block = blocksToActuallyCreate[i]
+          setOperationProgress(`Creando bloque ${i + 1} de ${blocksToActuallyCreate.length}...`)
           try {
-            console.log(`🔧 DEBUG: Creating block ${i + 1}:`, block)
+            console.log(`🔧 Creating new block ${i + 1}:`, block)
             const result = await createMutation.mutateAsync(block as TimeBlockCreate)
-            console.log(`✅ Bloque ${i + 1}/${blocksToCreate.length} creado:`, result)
+            console.log(`✅ Bloque ${i + 1}/${blocksToActuallyCreate.length} creado:`, result)
             // Small delay to prevent API overload
-            await new Promise(resolve => setTimeout(resolve, 200))
+            await new Promise(resolve => setTimeout(resolve, 150))
           } catch (error) {
             console.error(`🚨 Error creating block ${i + 1}:`, error)
             console.error(`🚨 Block data:`, block)
             console.error(`🚨 Error response:`, (error as any)?.response)
-            throw error // Stop on creation errors
+            
+            // Check if it's a duplicate error (which is acceptable)
+            const errorMessage = (error as any)?.response?.data?.message || ''
+            if (errorMessage.includes('already exists') || errorMessage.includes('duplicate')) {
+              console.log(`ℹ️ Block ${i + 1} already exists, continuing...`)
+              continue
+            }
+            
+            throw error // Stop on non-duplicate creation errors
           }
         }
+      } else {
+        console.log('ℹ️ No new blocks to create - all required blocks already exist')
       }
       
       setOperationProgress('Finalizando configuración...')
       await new Promise(resolve => setTimeout(resolve, 500)) // Final delay
       
-      // Invalidate programming-related caches
-      console.log('🔄 Invalidating programming caches after configuration change...')
+      // Force refresh data immediately
+      setOperationProgress('Actualizando datos...')
+      console.log('🔄 Invalidating and refetching all caches...')
+      
+      // Invalidate all related queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['classSchedules'] }),
         queryClient.invalidateQueries({ queryKey: ['dayTimeBlocks'] }),
         queryClient.invalidateQueries({ queryKey: ['scheduleData'] }),
         queryClient.invalidateQueries({ queryKey: ['timeBlocks'] }),
-        queryClient.invalidateQueries({ queryKey: ['days'] })
+        queryClient.invalidateQueries({ queryKey: ['days'] }),
+        queryClient.invalidateQueries({ queryKey: ['academic-config'] })
       ])
+      
+      // Force refetch all configuration data to see changes immediately
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['academic-config', 'time-blocks'] }),
+        queryClient.refetchQueries({ queryKey: ['academic-config', 'days'] }),
+        queryClient.refetchQueries({ queryKey: ['academic-config', 'schedule-config', 'active'] })
+      ])
+      
+      // After successful configuration, refetch and sync local state with backend
+      try {
+        console.log('🔄 [POST-CONFIG] Waiting for database operations to complete...')
+        // Small delay to ensure all database operations are complete
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        console.log('🔄 [POST-CONFIG] Fetching fresh data from backend to sync local state...')
+        
+        // Force fresh fetch by removing cached data first
+        queryClient.removeQueries({ queryKey: ['academic-config', 'days'] })
+        queryClient.removeQueries({ queryKey: ['academic-config', 'schedule-config', 'active'] })
+        
+        const [freshDaysData, freshScheduleConfigData] = await Promise.all([
+          queryClient.fetchQuery({ 
+            queryKey: ['academic-config', 'days'],
+            queryFn: () => academicConfigApi.getDays(),
+            staleTime: 0  // Force fresh fetch
+          }),
+          queryClient.fetchQuery({ 
+            queryKey: ['academic-config', 'schedule-config', 'active'],
+            queryFn: () => academicConfigApi.getActiveScheduleConfig(),
+            staleTime: 0  // Force fresh fetch
+          })
+        ])
+        
+        console.log('🔄 [POST-CONFIG] Fresh data received:', {
+          freshDaysData: freshDaysData?.data?.days?.length || 0,
+          freshScheduleConfig: !!freshScheduleConfigData?.data?.config
+        })
+        
+        // Sync days
+        if (freshDaysData?.data?.days) {
+          console.log('🔄 [POST-CONFIG] Processing fresh days data:')
+          console.log('🔄 All fresh days:', freshDaysData.data.days.map((d: any) => `${d.name}(${d.day_id}): ${d.is_active}`))
+          
+          const updatedActiveDays = freshDaysData.data.days
+            .filter((day: any) => day.is_active)
+            .map((day: any) => day.day_id)
+            
+          console.log('🔄 [POST-CONFIG] Active days from fresh data:', updatedActiveDays)
+          console.log('🔄 [POST-CONFIG] Previous selectedDays:', selectedDays)
+          console.log('📝 [SET STATE] Setting selectedDays from post-configuration sync:', updatedActiveDays)
+          setSelectedDays(updatedActiveDays)
+          console.log('✅ [POST-CONFIG] selectedDays updated to reflect backend changes')
+        } else {
+          console.warn('⚠️ [POST-CONFIG] No fresh days data received')
+        }
+        
+        // Sync schedule configuration
+        if (freshScheduleConfigData?.data?.config) {
+          const config = freshScheduleConfigData.data.config
+          const newStartTime = config.day_start_time.substring(0, 5)
+          const newEndTime = config.day_end_time.substring(0, 5)
+          
+          setStartTime(newStartTime)
+          setEndTime(newEndTime)
+          console.log('🔄 Synced schedule config with backend:', { start: newStartTime, end: newEndTime })
+        }
+        
+        console.log('✅ All local state synchronized with backend')
+        
+        // Ensure backend data loaded flag reflects current state
+        setHasBackendDataLoaded(true)
+        console.log('🏁 [POST-CONFIG] Synchronization completed successfully')
+        
+        // Add additional delay to ensure React state updates are completed
+        await new Promise(resolve => setTimeout(resolve, 100))
+      } catch (error) {
+        console.warn('⚠️ Could not sync local state after configuration:', error)
+      }
       
       const successMessage = existingSchedules.length > 0 
         ? `✅ Configuración aplicada. ${existingSchedules.length} horarios existentes pueden requerir revisión.`
@@ -273,73 +604,147 @@ export function TimeBlockManagement() {
       setOperationProgress('')
     } catch (error) {
       console.error('🚨 Error applying configuration:', error)
-      console.error('🚨 Error details:', {
+      
+      const errorDetails = {
         message: error instanceof Error ? error.message : 'Unknown error',
         response: (error as any)?.response?.data,
-        status: (error as any)?.response?.status
-      })
-      toast.error('❌ Error al aplicar la configuración')
+        status: (error as any)?.response?.status,
+        timestamp: new Date().toISOString()
+      }
+      
+      console.error('🚨 Error details:', errorDetails)
+      
+      // Provide specific error messages based on error type
+      let errorMessage = '❌ Error al aplicar la configuración'
+      
+      if ((error as any)?.response?.status === 401) {
+        errorMessage = '❌ Error de autenticación. Por favor, inicie sesión nuevamente.'
+      } else if ((error as any)?.response?.status === 403) {
+        errorMessage = '❌ No tiene permisos para realizar esta operación.'
+      } else if ((error as any)?.response?.status === 409) {
+        errorMessage = '❌ Conflicto con la configuración existente. Verifique los datos.'
+      } else if ((error as any)?.response?.status >= 500) {
+        errorMessage = '❌ Error del servidor. Intente nuevamente más tarde.'
+      } else if ((error as any)?.response?.data?.detail) {
+        errorMessage = `❌ Error: ${(error as any).response.data.detail}`
+      } else if ((error as any)?.response?.data?.message) {
+        errorMessage = `❌ Error: ${(error as any).response.data.message}`
+      }
+      
+      toast.error(errorMessage)
       setIsApplying(false)
       setOperationProgress('')
+      
+      // Force refresh to ensure UI is in sync with backend
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['academic-config', 'time-blocks'] }),
+        queryClient.invalidateQueries({ queryKey: ['academic-config', 'days'] })
+      ])
     }
   }
 
-  // Initialize selected days from current configuration
+  // Load configuration from backend data - triggers when data becomes available
   useEffect(() => {
-    if (days.length > 0) {
-      const activeDayIds = days.filter(day => day.is_active).map(day => day.day_id)
-      setSelectedDays(activeDayIds)
-    }
-  }, [days])
-
-  // Handle individual day toggle with immediate API update
-  const handleDayToggle = async (dayId: number, isChecked: boolean) => {
-    setUpdatingDay(dayId)
+    console.log('🔍 [SYNC TRIGGER] Checking sync conditions:', {
+      daysLength: days.length,
+      hasInitialized,
+      hasBackendDataLoaded,
+      isLoadingDays,
+      isApplying,
+      shouldSync: days.length > 0 && !hasBackendDataLoaded && !isLoadingDays && !isApplying
+    })
     
-    try {
-      // Update local state immediately for UI responsiveness
-      if (isChecked) {
-        setSelectedDays([...selectedDays, dayId])
+    // CRITICAL FIX: Don't run initial sync during configuration apply to prevent race condition
+    if (days.length > 0 && !hasBackendDataLoaded && !isLoadingDays && !isApplying) {
+      console.log('🔄 [INITIAL LOAD] Syncing frontend state with backend data...')
+      console.log('Backend days data:', days.map(d => ({ id: d.day_id, name: d.name, active: d.is_active })))
+      
+      // Load selected days from backend data
+      const activeDaysFromBackend = days.filter(day => day.is_active)
+      const activeDayIds = activeDaysFromBackend.map(day => day.day_id)
+      
+      console.log('🔄 [INITIAL LOAD] Filtering active days:')
+      console.log('🔄 All days:', days.map(d => `${d.name}(${d.day_id}): ${d.is_active}`))
+      console.log('🔄 Active days filtered:', activeDaysFromBackend.map(d => `${d.name}(${d.day_id})`))
+      console.log('🔄 Active day IDs to set:', activeDayIds)
+      
+      console.log('📝 [SET STATE] Setting selectedDays from initial backend sync:', activeDayIds)
+      setSelectedDays(activeDayIds)
+      console.log('✅ [INITIAL LOAD] selectedDays state has been updated')
+      
+      // Load time configuration from schedule config if available
+      if (scheduleConfigData?.config) {
+        const config = scheduleConfigData.config
+        const newStartTime = config.day_start_time.substring(0, 5)
+        const newEndTime = config.day_end_time.substring(0, 5)
+        
+        console.log('🔄 [INITIAL LOAD] Setting time config from backend:', { start: newStartTime, end: newEndTime })
+        setStartTime(newStartTime)
+        setEndTime(newEndTime)
       } else {
-        setSelectedDays(selectedDays.filter(id => id !== dayId))
+        console.log('⚠️ [INITIAL LOAD] No schedule config found in backend, keeping default values:', { start: startTime, end: endTime })
       }
-
-      // Update in database immediately
-      await updateDayMutation.mutateAsync({
-        id: dayId,
-        data: { is_active: isChecked }
+      
+      // Load duration from active blocks if available
+      if (timeBlocks.length > 0) {
+        const activeBlocks = timeBlocks.filter(block => block.is_active)
+        if (activeBlocks.length > 0) {
+          const firstBlock = activeBlocks[0]
+          const blockDuration = getTimeDifferenceInMinutes(
+            firstBlock.start_time.substring(0, 5),
+            firstBlock.end_time.substring(0, 5)
+          )
+          
+          if (blockDuration >= 60 && blockDuration <= 480) {
+            console.log('🔄 [INITIAL LOAD] Setting duration from backend:', blockDuration, 'minutes')
+            setUniformDuration(blockDuration)
+          } else {
+            console.log('⚠️ [INITIAL LOAD] Invalid block duration found:', blockDuration, 'minutes - keeping default:', uniformDuration)
+          }
+        } else {
+          console.log('⚠️ [INITIAL LOAD] No active blocks found - keeping default duration:', uniformDuration)
+        }
+      } else {
+        console.log('⚠️ [INITIAL LOAD] No blocks found in backend - keeping default duration:', uniformDuration)
+      }
+      
+      // Mark that backend data has been loaded
+      setHasBackendDataLoaded(true)
+      console.log('✅ [INITIAL LOAD] Frontend state synchronized with backend')
+      console.log('📊 Final state after backend sync:', {
+        selectedDays: activeDayIds,
+        startTime: scheduleConfigData?.config ? scheduleConfigData.config.day_start_time.substring(0, 5) : startTime,
+        endTime: scheduleConfigData?.config ? scheduleConfigData.config.day_end_time.substring(0, 5) : endTime,
+        uniformDuration
       })
-
-      console.log(`✅ Day ${dayId} ${isChecked ? 'activated' : 'deactivated'} successfully`)
-      
-      // Show success toast
-      toast.success(`Día ${isChecked ? 'activado' : 'desactivado'} exitosamente`)
-      
-    } catch (error) {
-      console.error(`❌ Error updating day ${dayId}:`, error)
-      
-      // Revert local state on error
-      if (isChecked) {
-        setSelectedDays(selectedDays.filter(id => id !== dayId))
-      } else {
-        setSelectedDays([...selectedDays, dayId])
-      }
-      
-      // Show error toast with more details
-      const errorMessage = (error as any)?.response?.data?.detail || 'Error desconocido'
-      toast.error(`Error al ${isChecked ? 'activar' : 'desactivar'} el día: ${errorMessage}`)
-    } finally {
-      setUpdatingDay(null)
     }
+  }, [days.length, hasBackendDataLoaded, isLoadingDays, isApplying, scheduleConfigData?.config, timeBlocks.length])
+
+
+  // Handle day toggle - immediate save to database with UI update
+  const handleDayToggle = (dayId: number, isChecked: boolean, event?: React.ChangeEvent<HTMLInputElement>) => {
+    console.log(`📅 [LOCAL ONLY] Toggling day ${dayId} to ${isChecked ? 'active' : 'inactive'} (no save until Apply)`)
+    console.log('Current selectedDays before change:', selectedDays)
+    
+    // Prevent any default behavior
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    
+    // Only update local state - NO DATABASE SAVE
+    const newSelectedDays = isChecked 
+      ? [...selectedDays, dayId]
+      : selectedDays.filter(id => id !== dayId)
+    
+    console.log('New selectedDays after change:', newSelectedDays)
+    console.log('📝 [SET STATE] Setting selectedDays from user toggle:', newSelectedDays)
+    setSelectedDays(newSelectedDays)
+    
+    console.log(`✅ Day ${dayId} ${isChecked ? 'selected' : 'deselected'} locally - NO NETWORK REQUEST MADE`)
   }
 
-  // Initialize time range from schedule configuration
-  useEffect(() => {
-    if (scheduleConfigData?.config) {
-      setStartTime(scheduleConfigData.config.day_start_time.substring(0, 5)) // Remove seconds
-      setEndTime(scheduleConfigData.config.day_end_time.substring(0, 5)) // Remove seconds
-    }
-  }, [scheduleConfigData])
+  // Time configuration is now handled in the main loadFreshConfiguration useEffect above
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -364,6 +769,7 @@ export function TimeBlockManagement() {
     return `${displayHour}:${minute} ${period}`
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatDuration = (minutes: number): string => {
     if (minutes < 60) {
       return `${minutes} minutos`
@@ -412,6 +818,36 @@ export function TimeBlockManagement() {
     return dayTranslations[dayName] || dayName
   }
 
+  const getDayShortName = (dayName: string): string => {
+    const shortTranslations: { [key: string]: string } = {
+      'Monday': 'Lun',
+      'Tuesday': 'Mar', 
+      'Wednesday': 'Mié',
+      'Thursday': 'Jue',
+      'Friday': 'Vie',
+      'Saturday': 'Sáb',
+      'Sunday': 'Dom',
+      'Lunes': 'Lun',
+      'Martes': 'Mar',
+      'Miércoles': 'Mié', 
+      'Jueves': 'Jue',
+      'Viernes': 'Vie',
+      'Sábado': 'Sáb',
+      'Domingo': 'Dom'
+    }
+    return shortTranslations[dayName] || dayName.substring(0, 3)
+  }
+
+  // DEBUG: Log render state
+  console.log('🖥️ [RENDER] Component is rendering with state:', {
+    selectedDays,
+    selectedDaysLength: selectedDays.length,
+    daysFromBackend: days.length,
+    isLoading,
+    hasInitialized,
+    hasBackendDataLoaded
+  })
+
   if (isLoading) {
     return (
       <div className="p-8 text-center">
@@ -444,13 +880,19 @@ export function TimeBlockManagement() {
     <div className="space-y-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex items-center gap-3">
+                <Typography variant="h2" className="text-gray-900 dark:text-gray-100">
+                  Configuración de Estructura Horaria
+                </Typography>
+                <RealTimeStatusBadge />
+              </div>
             </div>
-            <Typography variant="h2" className="text-gray-900 dark:text-gray-100">
-              Configuración de Estructura Horaria
-            </Typography>
+            
           </div>
           <Typography variant="body" className="text-gray-600 dark:text-gray-400">
             Define los días lectivos y la duración de los bloques de tiempo
@@ -476,15 +918,23 @@ export function TimeBlockManagement() {
                     <span className="truncate">
                       {selectedDays.length === 0 
                         ? "Seleccionar días" 
-                        : selectedDays.length === days.length 
-                        ? "Todos los días"
-                        : selectedDays.length <= 2
+                        : selectedDays.length <= 3
                         ? days
                             .filter(day => selectedDays.includes(day.day_id))
                             .sort((a, b) => a.sort_order - b.sort_order)
                             .map(day => getDayNameInSpanish(day.name))
                             .join(", ")
-                        : `${selectedDays.length} día${selectedDays.length > 1 ? 's' : ''} seleccionado${selectedDays.length > 1 ? 's' : ''}`
+                        : selectedDays.length === days.length 
+                        ? "Todos los días (" + days
+                            .filter(day => selectedDays.includes(day.day_id))
+                            .sort((a, b) => a.sort_order - b.sort_order)
+                            .map(day => day.short_name || getDayShortName(day.name))
+                            .join(", ") + ")"
+                        : days
+                            .filter(day => selectedDays.includes(day.day_id))
+                            .sort((a, b) => a.sort_order - b.sort_order)
+                            .map(day => day.short_name || getDayShortName(day.name))
+                            .join(", ")
                       }
                     </span>
                     <ChevronDown className={cn(
@@ -497,7 +947,10 @@ export function TimeBlockManagement() {
                     <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {days
                         .sort((a, b) => a.sort_order - b.sort_order)
-                        .map((day) => (
+                        .map((day) => {
+                          const isSelected = selectedDays.includes(day.day_id)
+                          console.log(`🎯 [RENDER] Day ${day.day_id} (${getDayNameInSpanish(day.name)}): backend active=${day.is_active}, frontend selected=${isSelected}`)
+                          return (
                           <label
                             key={day.day_id}
                             className="flex items-center px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer last:mb-2"
@@ -506,22 +959,21 @@ export function TimeBlockManagement() {
                               type="checkbox"
                               checked={selectedDays.includes(day.day_id)}
                               onChange={(e) => {
-                                handleDayToggle(day.day_id, e.target.checked)
+                                console.log(`🎯 [CHECKBOX] Day ${day.day_id} (${getDayNameInSpanish(day.name)}) toggled to: ${e.target.checked}`)
+                                console.log(`🎯 [CHECKBOX] Current selectedDays:`, selectedDays)
+                                console.log(`🎯 [CHECKBOX] Day is currently selected:`, selectedDays.includes(day.day_id))
+                                handleDayToggle(day.day_id, e.target.checked, e)
                               }}
-                              disabled={isApplying || updatingDay === day.day_id}
+                              disabled={isApplying}
                               className="sr-only"
                             />
                             <div className={cn(
                               "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors mr-3",
-                              updatingDay === day.day_id
-                                ? "bg-yellow-100 border-yellow-400 dark:bg-yellow-900/30 dark:border-yellow-600"
-                                : selectedDays.includes(day.day_id)
+                              selectedDays.includes(day.day_id)
                                 ? "bg-blue-600 border-blue-600"
                                 : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
                             )}>
-                              {updatingDay === day.day_id ? (
-                                <div className="w-2 h-2 border border-yellow-600 border-t-transparent rounded-full animate-spin" />
-                              ) : selectedDays.includes(day.day_id) ? (
+                              {selectedDays.includes(day.day_id) ? (
                                 <Check className="w-3 h-3 text-white" />
                               ) : null}
                             </div>
@@ -529,7 +981,8 @@ export function TimeBlockManagement() {
                               {getDayNameInSpanish(day.name)}
                             </span>
                           </label>
-                        ))}
+                          )
+                        })}
                     </div>
                   )}
                 </div>
@@ -628,6 +1081,79 @@ export function TimeBlockManagement() {
 
         </div>
 
+        {/* Existing Blocks Status */}
+        {timeBlocks.length > 0 && (
+          <div className="mb-6">
+            <Typography variant="h3" className="text-gray-900 dark:text-gray-100 mb-4">
+              Estado de Bloques Existentes
+            </Typography>
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {timeBlocks.map(block => {
+                  const willBeActive = blockMatchesConfiguration(block)
+                  const statusChanged = block.is_active !== willBeActive
+                  
+                  return (
+                    <div
+                      key={block.time_block_id}
+                      className={cn(
+                        "p-3 rounded-lg border-2 transition-colors",
+                        willBeActive 
+                          ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
+                          : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50",
+                        statusChanged && "ring-2 ring-blue-500 ring-opacity-50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {block.start_time.substring(0, 5)} - {block.end_time.substring(0, 5)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {statusChanged && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                          )}
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded",
+                            willBeActive 
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                          )}>
+                            {willBeActive ? "Activo" : "Inactivo"}
+                          </span>
+                        </div>
+                      </div>
+                      {block.name && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          {block.name}
+                        </p>
+                      )}
+                      {statusChanged && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          {willBeActive ? "Se activará" : "Se desactivará"}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-4 flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
+                  <span className="text-gray-600 dark:text-gray-400">Bloques que se activarán</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></div>
+                  <span className="text-gray-600 dark:text-gray-400">Bloques que se desactivarán</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-gray-600 dark:text-gray-400">Cambios pendientes</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Schedule Preview */}
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -672,18 +1198,18 @@ export function TimeBlockManagement() {
               {/* Days Header */}
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-2 overflow-x-auto">
-                  <Typography variant="body2" className="text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
+                  <Typography variant="body" className="text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
                     Días:
                   </Typography>
                   {days
                     .filter(day => selectedDays.includes(day.day_id))
                     .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((day, index) => (
+                    .map((day) => (
                       <span
                         key={day.day_id}
                         className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm font-medium rounded whitespace-nowrap"
                       >
-                        {day.short_name}
+                        {day.short_name || getDayShortName(day.name)}
                       </span>
                     ))}
                 </div>

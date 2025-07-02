@@ -21,6 +21,7 @@ from app.core.security.cors import configure_cors
 from app.core.security.headers import SecurityHeadersMiddleware
 from app.database import init_db
 from app.core.migrations import init_migrations
+from app.core.database_events import setup_database_events, set_event_loop_for_db_events
 # Import all models to register them with SQLAlchemy
 import app.models  # noqa: F401
 
@@ -47,6 +48,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     migration_success = init_migrations()
     if not migration_success:
         logger.warning("Some migrations may have failed, but continuing application startup")
+    
+    # Setup real-time database events
+    logger.info("Setting up database event listeners for real-time notifications...")
+    setup_database_events()
+    
+    # Set event loop for WebSocket notifications
+    import asyncio
+    loop = asyncio.get_event_loop()
+    set_event_loop_for_db_events(loop)
 
     yield
 

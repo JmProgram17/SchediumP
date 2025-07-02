@@ -10,51 +10,54 @@ import { tokenService } from '@/services/auth/token.service'
 import { SECURITY_CONFIG } from '@/config'
 
 /**
- * Cache configuration by module
+ * Cache configuration by module - OPTIMIZED FOR FRESH DATA
+ * All configurations prioritize database-first approach
  */
 export const CACHE_CONFIG = {
   // Authentication data - short cache due to security
   AUTH: {
-    staleTime: 5 * 60 * 1000,        // 5 minutes
-    cacheTime: 10 * 60 * 1000,       // 10 minutes
+    staleTime: 0,                    // Always stale = always fetch fresh
+    cacheTime: 5 * 60 * 1000,        // 5 minutes
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     retry: 1
   },
 
-  // User data - medium cache
+  // User data - immediate refresh
   USERS: {
-    staleTime: 10 * 60 * 1000,       // 10 minutes
-    cacheTime: 30 * 60 * 1000,       // 30 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 0,                    // Always fetch fresh data
+    cacheTime: 10 * 60 * 1000,       // 10 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     retry: 2
   },
 
-  // Academic data - longer cache as it changes less frequently
+  // Academic data - NO CACHE, always fresh from database
   ACADEMIC: {
-    staleTime: 15 * 60 * 1000,       // 15 minutes
-    cacheTime: 60 * 60 * 1000,       // 1 hour
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 0,                    // Always stale = always fetch fresh
+    gcTime: 0,                       // NO CACHE - remove immediately
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
     retry: 3
   },
 
-  // Static/reference data - very long cache
+  // Static/reference data - still allow some cache but refresh on focus
   REFERENCE: {
-    staleTime: 60 * 60 * 1000,       // 1 hour
-    cacheTime: 24 * 60 * 60 * 1000,  // 24 hours
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 5 * 60 * 1000,        // 5 minutes
+    cacheTime: 30 * 60 * 1000,       // 30 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     retry: 2
   },
 
-  // Real-time data - optimized cache for dashboard
+  // Real-time data - NO CACHE, always fresh
   REALTIME: {
-    staleTime: 2 * 60 * 1000,        // 2 minutes - increased for better performance
-    cacheTime: 10 * 60 * 1000,       // 10 minutes
-    refetchOnWindowFocus: false,     // Disabled to prevent excessive requests
-    refetchOnMount: false,           // Use cached data on mount
+    staleTime: 0,                    // Always fetch fresh
+    gcTime: 0,                       // NO CACHE - remove immediately
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
     retry: 1,
     refetchInterval: undefined       // Let individual hooks control their intervals
   }
@@ -268,23 +271,24 @@ const customRetry = (failureCount: number, error: unknown): boolean => {
 }
 
 /**
- * Default query configuration
+ * Default query configuration - OPTIMIZED FOR FRESH DATA
  */
 const defaultQueryConfig: QueryClientConfig = {
   defaultOptions: {
     queries: {
-      // Default cache settings
-      staleTime: CACHE_CONFIG.ACADEMIC.staleTime,
-      cacheTime: CACHE_CONFIG.ACADEMIC.cacheTime,
+      // NO CACHE STRATEGY: Always fetch fresh from database, no cache storage
+      staleTime: 0,                      // All data considered stale immediately
+      gcTime: 0,                         // NO CACHE - remove data immediately after use
       
       // Retry configuration
       retry: customRetry,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       
-      // Refetch configuration
-      refetchOnWindowFocus: SECURITY_CONFIG.ENVIRONMENT.isDevelopment ? false : 'always',
-      refetchOnMount: true,
-      refetchOnReconnect: true,
+      // AGGRESSIVE REFETCH: Always get fresh data
+      refetchOnWindowFocus: true,        // Always refetch when window gains focus
+      refetchOnMount: true,              // Always refetch when component mounts
+      refetchOnReconnect: true,          // Always refetch when internet reconnects
+      refetchInterval: false,            // Don't auto-refetch (controlled per query)
       
       // Network mode
       networkMode: 'online',
@@ -336,16 +340,30 @@ const defaultQueryConfig: QueryClientConfig = {
     }
   }),
   
-  // Custom mutation cache
+  // Custom mutation cache with automatic fresh data loading
   mutationCache: new MutationCache({
     onError: handleMutationError,
-    onSuccess: (data, variables, context, mutation) => {
+    onSuccess: async (data, variables, context, mutation) => {
       // Log successful mutations in development
       if (SECURITY_CONFIG.ENVIRONMENT.isDevelopment) {
         console.log(`[MUTATION SUCCESS] ${mutation.options.mutationKey?.join(' -> ') || 'unnamed'}`, {
           variables,
           data
         })
+      }
+      
+      // IMMEDIATE FRESH DATA LOADING after any successful mutation
+      console.log('🔄 [NO CACHE] Auto-invalidating and force refetching after mutation')
+      
+      try {
+        // AGGRESSIVE: Clear all cache and force immediate refetch
+        queryClient.clear()  // Clear ALL cache
+        await queryClient.invalidateQueries()  // Invalidate all
+        await queryClient.refetchQueries({ type: 'active' })  // Force immediate refetch
+        
+        console.log('✅ [NO CACHE] Immediate refetch completed')
+      } catch (error) {
+        console.error('❌ [NO CACHE] Immediate refetch failed:', error)
       }
     }
   })
@@ -364,27 +382,32 @@ export const createQueryClient = (): QueryClient => {
 export const queryClient = createQueryClient()
 
 /**
- * Cache utility functions
+ * Cache utility functions - OPTIMIZED FOR FRESH DATA
  */
 export const cacheUtils = {
   /**
-   * Invalidate all queries for a specific module
+   * FRESH DATA: Invalidate and immediately refetch all queries for a module
    */
   invalidateModule: async (module: 'auth' | 'users' | 'academic' | 'hr' | 'infrastructure' | 'scheduling' | 'dashboard') => {
+    console.log(`🔄 [FRESH DATA] Invalidating and refetching module: ${module}`)
     await queryClient.invalidateQueries({ queryKey: [module] })
+    await queryClient.refetchQueries({ queryKey: [module] })
   },
 
   /**
-   * Invalidate specific resource queries
+   * FRESH DATA: Invalidate and immediately refetch specific resource queries
    */
   invalidateResource: async (module: string, resource: string) => {
+    console.log(`🔄 [FRESH DATA] Invalidating and refetching resource: ${module}/${resource}`)
     await queryClient.invalidateQueries({ queryKey: [module, resource] })
+    await queryClient.refetchQueries({ queryKey: [module, resource] })
   },
 
   /**
-   * Remove all data for a module
+   * FRESH DATA: Remove all data for a module and force fresh fetch on next access
    */
   removeModuleData: (module: string) => {
+    console.log(`🗑️ [FRESH DATA] Removing cached data for module: ${module}`)
     queryClient.removeQueries({ queryKey: [module] })
   },
 
@@ -392,7 +415,29 @@ export const cacheUtils = {
    * Clear all cache data
    */
   clearAll: () => {
+    console.log('🗑️ [FRESH DATA] Clearing all cached data')
     queryClient.clear()
+  },
+
+  /**
+   * FRESH DATA: Force immediate refetch of all active queries
+   */
+  refetchAll: async () => {
+    console.log('🔄 [FRESH DATA] Force refetching all active queries')
+    await queryClient.refetchQueries()
+  },
+
+  /**
+   * FRESH DATA: Global invalidation after any mutation
+   */
+  invalidateAfterMutation: async (mutationType: 'create' | 'update' | 'delete', entityType: string) => {
+    console.log(`🔄 [FRESH DATA] Post-mutation invalidation: ${mutationType} ${entityType}`)
+    
+    // Invalidate all related data to ensure consistency
+    await Promise.all([
+      queryClient.invalidateQueries(),                    // Invalidate everything
+      queryClient.refetchQueries({ type: 'active' })     // Refetch all active queries
+    ])
   },
 
   /**

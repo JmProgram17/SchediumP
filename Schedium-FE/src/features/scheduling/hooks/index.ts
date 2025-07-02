@@ -82,7 +82,12 @@ export const useTimeBlockList = (options?: { enabled?: boolean }) => {
       const response = await api.get<{ data: PaginatedResponse<TimeBlock> }>('/scheduling/time-blocks?size=50')
       return response.data.data
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
   })
 }
@@ -99,7 +104,12 @@ export const useDayTimeBlockList = (options?: { enabled?: boolean }) => {
       console.log('🔤 Response headers Content-Type:', response.headers['content-type'])
       return response.data.data
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
   })
 }
@@ -112,7 +122,12 @@ export const useQuarterList = (options?: { enabled?: boolean }) => {
       const response = await api.get<{ data: PaginatedResponse<Quarter> }>('/scheduling/quarters')
       return response.data.data
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
   })
 }
@@ -139,7 +154,12 @@ export const useClassScheduleList = (filters?: {
       )
       return response.data.data
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
   })
 }
@@ -159,7 +179,12 @@ export const useScheduleList = (options?: { enabled?: boolean }) => {
       const response = await api.get<{ data: PaginatedResponse<Schedule> }>('/scheduling/schedules?size=100')
       return response.data.data
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
   })
 }
@@ -188,7 +213,12 @@ export const useGroupList = (filters?: {
       console.log('📚 Sample group program name:', response.data.data.items?.[0]?.program?.name)
       return response.data.data
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
   })
 }

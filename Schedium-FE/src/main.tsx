@@ -51,10 +51,12 @@ async function initializeApp() {
     const [
       { default: App },
       { QueryProvider },
+      { WebSocketProvider },
       { observabilityService }
     ] = await Promise.all([
       import('./App.tsx'),
       import('@/services/query'),
+      import('@/services/websocket/websocket-provider'),
       import('@/services/observability')
     ])
     
@@ -90,7 +92,9 @@ async function initializeApp() {
       <React.StrictMode>
         <ErrorBoundary>
           <QueryProvider>
-            <App />
+            <WebSocketProvider defaultModule="global" enableNotifications={true}>
+              <App />
+            </WebSocketProvider>
           </QueryProvider>
         </ErrorBoundary>
       </React.StrictMode>

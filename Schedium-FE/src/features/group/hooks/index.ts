@@ -37,6 +37,12 @@ export const useGroup = (groupId: number | null) => {
     queryKey: [QUERY_KEY, 'detail', groupId],
     queryFn: () => groupId ? groupService.getGroup(groupId) : null,
     enabled: !!groupId,
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 }
 
@@ -233,7 +239,12 @@ export const useAllPrograms = () => {
   return useQuery({
     queryKey: ['programs', 'all'],
     queryFn: () => groupService.getAllPrograms(),
-    staleTime: 300000, // 5 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 }
 
@@ -244,7 +255,12 @@ export const useAllSchedules = () => {
   return useQuery({
     queryKey: ['schedules', 'all'],
     queryFn: () => groupService.getAllSchedules(),
-    staleTime: 300000, // 5 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 }
 

@@ -31,8 +31,12 @@ export const useInstructorList = (query: InstructorListQuery = {}, options?: { e
   return useQuery({
     queryKey: instructorKeys.list(query),
     queryFn: () => instructorService.getInstructors(query),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     enabled: options?.enabled ?? true,
     meta: {
       errorMessage: 'Error al cargar la lista de instructores'
@@ -48,7 +52,12 @@ export const useInstructor = (id: string, enabled = true) => {
     queryKey: instructorKeys.detail(id),
     queryFn: () => instructorService.getInstructor(id),
     enabled: enabled && !!id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     meta: {
       errorMessage: 'Error al cargar instructor'
     }

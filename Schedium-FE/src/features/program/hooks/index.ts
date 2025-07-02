@@ -31,8 +31,12 @@ export const useProgramList = (query: ProgramListQuery = {}) => {
   return useQuery({
     queryKey: programKeys.list(query),
     queryFn: () => programService.getPrograms(query),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     meta: {
       errorMessage: 'Error al cargar la lista de programas académicos'
     }
@@ -47,7 +51,12 @@ export const useProgram = (id: string, enabled = true) => {
     queryKey: programKeys.detail(id),
     queryFn: () => programService.getProgram(id),
     enabled: enabled && !!id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // NO CACHE: Always fetch fresh from database, no cache storage
+    staleTime: 0,
+    gcTime: 0,  // NO CACHE - remove immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     meta: {
       errorMessage: 'Error al cargar programa académico'
     }

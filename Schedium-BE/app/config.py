@@ -41,8 +41,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     RATE_LIMIT_ENABLED: bool = True
-    RATE_LIMIT_PER_MINUTE: int = 60
-    RATE_LIMIT_PER_HOUR: int = 1000
+    RATE_LIMIT_PER_MINUTE: int = 300  # Increased for real-time frontend updates
+    RATE_LIMIT_PER_HOUR: int = 5000   # Increased for development/real-time usage
 
     # Redis for rate limiting
     REDIS_URL: str = "redis://localhost:6379/0"
