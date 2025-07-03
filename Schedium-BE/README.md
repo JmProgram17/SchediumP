@@ -64,6 +64,34 @@ docker-compose up -d
 - **Usuario:** schedule
 - **Contraseña:** HorariosSena1
 
+## 🎯 Poblado de Base de Datos (DESARROLLO)
+
+Para trabajar con datos de ejemplo durante el desarrollo:
+
+```bash
+# Poblar la base de datos con datos de ejemplo completos
+cd Schedium-BE
+./scripts/populate_sample_data.sh
+```
+
+### 📊 Datos de ejemplo incluidos:
+- ✅ **3 Campus**: Central, Norte, Sur
+- ✅ **3 Coordinaciones**: Sistemas, Administración, Salud
+- ✅ **5 Programas**: Sistemas, Redes, Admin Empresas, Aux Enfermería, Atención Prehospitalaria
+- ✅ **5 Instructores**: Con diferentes tipos de contrato
+- ✅ **5 Ambientes**: Laboratorios y aulas teóricas
+- ✅ **5 Fichas**: Grupos de estudiantes activos
+- ✅ **Usuarios coordinadores**: Para pruebas de roles
+- ✅ **Configuración académica**: Parámetros del sistema
+
+### 🔑 Credenciales de prueba:
+- **Coordinador Sistemas**: pedro.ramirez@schedium.edu.co
+- **Coordinador Admin**: sandra.torres@schedium.edu.co  
+- **Coordinador Salud**: luis.vargas@schedium.edu.co
+- **Contraseña**: `password` (para todos)
+
+**Nota**: Los datos de ejemplo son seguros y NO incluyen horarios para evitar conflictos. Son ideales para desarrollo y pruebas.
+
 ## 🏗️ Arquitectura
 
 ### Patrón de Diseño

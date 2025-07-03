@@ -386,7 +386,7 @@ class ClassScheduleRepository(
             joinedload(ClassSchedule.day_time_block).joinedload(
                 DayTimeBlock.time_block
             ),
-            joinedload(ClassSchedule.group),
+            # joinedload(ClassSchedule.group),  # Temporarily disabled to fix serialization
             joinedload(ClassSchedule.instructor),
             joinedload(ClassSchedule.classroom),
         )

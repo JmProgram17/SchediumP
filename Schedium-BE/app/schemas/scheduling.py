@@ -14,6 +14,15 @@ from app.schemas.infrastructure import Classroom
 
 # Removed TYPE_CHECKING import to fix circular dependency
 
+# Simple group schema to avoid circular imports
+class SimpleGroupInfo(BaseSchema):
+    """Simple group information for scheduling responses."""
+    group_id: int = Field(..., description="Group ID")
+    group_number: int = Field(..., description="Group number")
+    program_name: Optional[str] = Field(None, description="Program name")
+    
+    model_config = {"from_attributes": True}
+
 
 # Schedule (Jornada) Schemas
 class ScheduleBase(BaseSchema):
@@ -232,7 +241,7 @@ class ClassSchedule(TimestampSchema):
 class ClassScheduleDetailed(ClassSchedule):
     """Detailed class schedule schema with all relationships."""
 
-    group: Optional[Any] = Field(None, description="Student group information")
+    # group: Optional[SimpleGroupInfo] = Field(None, description="Student group information")  # Temporarily disabled
     instructor: Optional[Instructor] = None
     classroom: Optional[Classroom] = None
 

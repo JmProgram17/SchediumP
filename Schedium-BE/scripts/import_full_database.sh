@@ -71,6 +71,14 @@ fi
 if [ $? -eq 0 ]; then
     echo "✅ Base de datos importada exitosamente!"
     
+    # Verificar que las migraciones estén aplicadas correctamente
+    echo "🔍 Verificando estado de migraciones..."
+    docker-compose run --rm api alembic current --verbose
+    
+    # Aplicar cualquier migración pendiente por si acaso
+    echo "📝 Aplicando migraciones pendientes..."
+    docker-compose run --rm api alembic upgrade head
+    
     # Levantar todos los servicios
     echo "🎯 Iniciando todos los servicios..."
     docker-compose up -d

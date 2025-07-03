@@ -583,6 +583,7 @@ class SchedulingService:
         page = self.class_schedule_repo.search_schedules(
             params, subject, instructor_id, group_id, classroom_id, quarter_id, day_id
         )
+        # Temporarily use simple validation to avoid serialization issues
         page.items = [ClassScheduleDetailed.model_validate(item) for item in page.items]
         return page
 

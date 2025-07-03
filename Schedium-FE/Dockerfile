@@ -12,6 +12,16 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Build arguments
+ARG VITE_API_URL=http://localhost:8001
+ARG VITE_APP_NAME=Schedium
+ARG VITE_APP_ENV=development
+
+# Set environment variables for build
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_APP_NAME=$VITE_APP_NAME
+ENV VITE_APP_ENV=$VITE_APP_ENV
+
 # Build the application
 RUN npm run build
 

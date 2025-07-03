@@ -82,6 +82,21 @@ Deberías ver:
 3. **El archivo .sql.gz está comprimido** para reducir el tamaño
 4. **Los scripts manejan automáticamente** la compresión/descompresión
 
+## 🚨 Migraciones Específicas No Aplicadas
+
+Si después de importar la base de datos, tu amigo ve que:
+- ❌ La tabla `classroom` AÚN tiene el campo `classroom_type`
+- ❌ La tabla `quarter` NO tiene campos como `quarter_number`, `academic_year`, etc.
+
+**Ejecutar este comando para forzar las migraciones faltantes:**
+```bash
+./scripts/force_missing_migrations.sh
+```
+
+Este script aplicará manualmente:
+1. ✅ Remover `classroom_type` de la tabla `classroom`
+2. ✅ Agregar campos adicionales a la tabla `quarter`
+
 ## 🔧 Solución de Problemas
 
 ### Error: "El contenedor MySQL no está activo"
